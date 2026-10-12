@@ -1,0 +1,148 @@
+{{/* SPDX-License-Identifier: Apache-2.0 */}}
+{{/* Copyright (c) 2026 Justin Dodrill */}}
+{{- if .Values.workers.enabled }}
+{{- $url := include "olcf.workerURL" . }}
+{{- $insecure := hasPrefix "http://" $url }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "olcf.fullname" . }}-worker
+  labels:
+    {{- include "olcf.labels" . | nindent 4 }}
+    app.kubernetes.io/component: worker
+spec:
+  clusterIP: None
+  publishNotReadyAddresses: true
+  ports:
+    - {name: driver, port: 41000, targetPort: 41000}
+  selector:
+    {{- include "olcf.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: worker
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "olcf.fullname" . }}-worker
+  labels:
+    {{- include "olcf.labels" . | nindent 4 }}
+    app.kubernetes.io/component: worker
+spec:
+  serviceName: {{ include "olcf.fullname" . }}-worker
+  replicas: {{ .Values.workers.replicas }}
+  podManagementPolicy: Parallel          # start every worker at once; they wait for their enrolment token
+  selector:
+    matchLabels:
+      {{- include "olcf.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: worker
+  template:
+    metadata:
+      labels:
+        {{- include "olcf.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: worker
+      {{- with .Values.workers.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      automountServiceAccountToken: false
+      {{- include "olcf.pullSecrets" . | nindent 6 }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      terminationGracePeriodSeconds: 120
+      containers:
+        - name: worker
+          image: {{ include "olcf.workerImage" . | quote }}
+          imagePullPolicy: {{ .Values.workerImage.pullPolicy }}
+          args: ["run"]
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          ports:
+            - {name: driver, containerPort: 41000}
+          env:
+            - name: OLCF_WORKER_NAME
+              valueFrom:
+                fieldRef: {fieldPath: metadata.name}
+            - name: OLCF_WORKER_URL
+              value: {{ $url | quote }}
+            - name: OLCF_WORKER_POOL
+              value: {{ .Values.workers.pool | quote }}
+            - name: OLCF_WORKER_MAX_JOBS
+              value: {{ .Values.workers.maxJobs | quote }}
+            {{- if .Values.workers.labels }}
+            - name: OLCF_WORKER_LABELS
+              value: {{ .Values.workers.labels | quote }}
+            {{- end }}
+            {{- if $insecure }}
+            - name: OLCF_WORKER_INSECURE_WS
+              value: "true"
+            {{- end }}
+            {{- if .Values.workers.advertiseHost }}
+            - name: OLCF_WORKER_ADVERTISE_HOST
+              value: {{ .Values.workers.advertiseHost | quote }}
+            {{- else }}
+            - name: OLCF_WORKER_ADVERTISE_HOST
+              valueFrom:
+                fieldRef: {fieldPath: status.podIP}
+            {{- end }}
+            - {name: OLCF_ENROLL_DIR, value: /enroll}
+            - {name: OLCF_WORKER_STATE_DIR, value: /var/lib/olcf-worker}
+            - {name: HOME, value: /var/lib/olcf-worker/home}
+            {{- if include "olcf.runtimeTrustEnabled" . }}
+            - name: OLCF_RUNTIME_TRUST_DIR
+              value: {{ .Values.runtimeTrust.mountPath | quote }}
+            {{- end }}
+            {{- with .Values.workers.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          resources:
+            {{- toYaml .Values.workers.resources | nindent 12 }}
+          volumeMounts:
+            - {name: state, mountPath: /var/lib/olcf-worker}
+            - {name: enroll, mountPath: /enroll, readOnly: true}
+            - {name: tmp, mountPath: /tmp}
+            {{- if include "olcf.runtimeTrustEnabled" . }}
+            - name: runtime-trust
+              mountPath: {{ .Values.runtimeTrust.mountPath | quote }}
+              readOnly: true
+            {{- end }}
+            {{- with .Values.workers.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+      volumes:
+        - name: enroll
+          secret:
+            secretName: {{ include "olcf.fullname" . }}-enroll
+            optional: true                # created by the post-install hook; the worker waits for its token
+            defaultMode: 0440
+        - name: tmp
+          emptyDir: {sizeLimit: 10Gi}
+        {{- if include "olcf.runtimeTrustEnabled" . }}
+        {{- include "olcf.runtimeTrustVolume" . | nindent 8 }}
+        {{- end }}
+        {{- with .Values.workers.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.workers.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.workers.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.workers.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+  volumeClaimTemplates:
+    - metadata:
+        name: state
+      spec:
+        accessModes: [ReadWriteOnce]
+        {{- if .Values.workers.persistence.storageClass }}
+        storageClassName: {{ .Values.workers.persistence.storageClass | quote }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.workers.persistence.size }}
+{{- end }}

@@ -1,0 +1,17 @@
+table 'Date Table'
+
+	column Date
+		dataType: dateTime
+		sourceColumn: Date
+
+	column Year
+		dataType: int64
+		sourceColumn: Year
+
+	partition 'Date Table' = m
+		mode: import
+		source =
+				let
+				    Source = Sql.Database("analytics.example.com", "erp", [Query="SELECT d AS Date, YEAR(d) AS Year FROM dbo.calendar"])
+				in
+				    Source

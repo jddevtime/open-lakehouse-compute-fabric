@@ -1,0 +1,14 @@
+{
+  "data_run": "notebook",
+  "description": "default lakehouse plus a second one: /lakehouse/default open(), notebookutils.lakehouse.get and notebookutils.fs across both",
+  "engine": "python",
+  "extra_lakehouses": [
+    "silver"
+  ],
+  "name": "multi_lakehouse",
+  "needs": "",
+  "parameters": {},
+  "primary_format": "fabricGitSource",
+  "standalone_engine": "python",
+  "why": ""
+}

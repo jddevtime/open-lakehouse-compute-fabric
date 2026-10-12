@@ -1,0 +1,12 @@
+{
+  "data_run": "notebook",
+  "description": "inner / left / left-anti / broadcast joins and a self-join, Fabric Git source format",
+  "engine": "spark",
+  "extra_lakehouses": [],
+  "name": "joins",
+  "needs": "",
+  "parameters": {},
+  "primary_format": "fabricGitSource",
+  "standalone_engine": "spark",
+  "why": ""
+}

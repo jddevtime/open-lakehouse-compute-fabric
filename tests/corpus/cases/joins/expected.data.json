@@ -1,0 +1,21 @@
+{
+  "anti": [
+    "c4"
+  ],
+  "inner": [
+    "1",
+    "2",
+    "3",
+    "4",
+    "5",
+    "7"
+  ],
+  "left_null_names": [
+    "6"
+  ],
+  "qty_by_country": {
+    "DE": 6,
+    "US": 10
+  },
+  "same_sku_pairs": 5
+}

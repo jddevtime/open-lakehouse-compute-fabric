@@ -1,0 +1,12 @@
+{
+  "data_run": "notebook",
+  "description": "row_number / rank / lag / running totals / moving average over partitions",
+  "engine": "spark",
+  "extra_lakehouses": [],
+  "name": "windows",
+  "needs": "",
+  "parameters": {},
+  "primary_format": "ipynb",
+  "standalone_engine": "spark",
+  "why": ""
+}

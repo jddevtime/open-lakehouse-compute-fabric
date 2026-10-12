@@ -1,0 +1,28 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Justin Dodrill
+#
+# TLS reverse proxy for OLCF (compose profile "tls").  OLCF_DOMAIN=localhost uses Caddy's internal CA (import its root certificate to trust it);
+# a public DNS name gets a Let's Encrypt certificate automatically (ports 80/443 must be reachable).  WebSockets (worker channel, notebook kernels,
+# job logs) and long-lived streams (MCP Streamable HTTP) pass through unbuffered.
+{$OLCF_DOMAIN:localhost} {
+	encode zstd gzip
+	request_body {
+		max_size 512MB
+	}
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options nosniff
+		Referrer-Policy no-referrer
+	}
+	reverse_proxy {$OLCF_UPSTREAM:http://olcf:8470} {
+		flush_interval -1
+		transport http {
+			# cluster profile: the upstream speaks https with the built-in CA
+			tls_trusted_ca_certs /olcf-data/pki/ca.crt
+			tls_server_name {$OLCF_UPSTREAM_TLS_NAME:control-plane}
+			read_timeout 1h
+		}
+		health_uri /v1/health
+		health_interval 15s
+	}
+}

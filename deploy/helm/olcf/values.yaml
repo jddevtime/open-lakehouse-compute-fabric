@@ -1,0 +1,186 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Justin Dodrill
+#
+# Default values for the OLCF chart.  Every value is validated by values.schema.json.
+# Quick start (single replica, bundled demo PostgreSQL, no ingress):
+#   helm install olcf deploy/helm/olcf --set database.bundled.enabled=true --set workers.insecureInCluster=true
+# Production: external PostgreSQL (database.external.*), ingress with TLS, controlPlane.publicUrl=https://..., your own secrets (secrets.existingSecret).
+# NOTE: the chart was not installed on a cluster in the environment it was written in; it is checked by a Python renderer + schema validation only.
+
+nameOverride: ""
+fullnameOverride: ""
+
+image:
+  repository: ghcr.io/jddevtime/olcf          # published by the release workflow on a version tag; until then build it with deploy/Dockerfile and set this
+  tag: ""                                 # default: the chart's appVersion
+  pullPolicy: IfNotPresent
+  pullSecrets: []
+
+workerImage:
+  repository: ghcr.io/jddevtime/olcf-worker
+  tag: ""
+  pullPolicy: IfNotPresent
+
+controlPlane:
+  replicaCount: 1                         # >1 needs PostgreSQL and a ReadWriteMany volume for persistence (the built-in CA lives in /data/pki)
+  publicUrl: ""                           # external https URL; used in enrolment commands, OIDC redirects and by the workers
+  trustedProxies: 1                       # reverse-proxy hops to trust for X-Forwarded-* (the ingress controller)
+  embeddedWorker: false                   # run a worker inside the control-plane pod (demo only; workers.* is the supported way)
+  logLevel: INFO
+  extraEnv: []                            # list of {name, value|valueFrom}
+  extraVolumes: []                        # further pod volumes (full Kubernetes volume objects)
+  extraVolumeMounts: []                   # further mounts of the control-plane container
+  resources:
+    requests: {cpu: 500m, memory: 1Gi}
+    limits: {memory: 4Gi}
+  podAnnotations: {}
+  podLabels: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  topologySpreadConstraints: []
+  priorityClassName: ""
+  service:
+    type: ClusterIP
+    port: 8470
+    annotations: {}
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+
+# Pod / container security context.  The defaults satisfy the Kubernetes "restricted" Pod Security Standard:
+#   kubectl label namespace <ns> pod-security.kubernetes.io/enforce=restricted
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 10001
+  fsGroup: 10001
+  seccompProfile: {type: RuntimeDefault}
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities: {drop: [ALL]}
+
+persistence:
+  enabled: true
+  existingClaim: ""
+  storageClass: ""
+  accessMode: ReadWriteOnce               # ReadWriteMany with controlPlane.replicaCount > 1
+  size: 20Gi
+  annotations: {}
+
+database:
+  external:
+    url: ""                               # postgresql+psycopg://user:pass@host:5432/olcf  (stored in the chart's Secret unless existingSecret is set)
+    existingSecret: ""                    # Secret holding the URL
+    existingSecretKey: db-url
+  bundled:                                # single-pod PostgreSQL for demos and tests - NOT for production
+    enabled: false
+    image: postgres:17-alpine
+    size: 8Gi
+    storageClass: ""
+
+secrets:
+  existingSecret: ""                      # Secret with keys master-key, jwt-signing-key, admin-password
+  adminPassword: ""                       # empty: generated once and kept across upgrades
+  adminPasswordKey: admin-password
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}                         # e.g. nginx.ingress.kubernetes.io/proxy-body-size: 512m, proxy-read-timeout: "3600"
+  hosts:
+    - host: olcf.example.com
+      paths:
+        - {path: /, pathType: Prefix}
+  tls: []                                 # [{secretName: olcf-tls, hosts: [olcf.example.com]}]
+
+# Spark standalone ports.  ONE source of truth: the control plane allocates master, worker, driver and block-manager ports from these ranges (the chart passes them to it as
+# OLCF_COMPUTE__* settings) and the NetworkPolicy below opens exactly these ranges between the control plane and the workers.  Widen a range here and both follow.
+# Ranges are inclusive and must not overlap.  Only change them together with the cluster's expectations (a worker pod's ports are not exposed outside the namespace).
+spark:
+  ports:
+    masterRpc: {start: 7077, end: 7092}       # Spark master: one per runtime family, first free port of the range (drivers and workers connect here)
+    masterUi: {start: 18080, end: 18095}      # master web UI (the control plane proxies it)
+    workerRpc: {start: 41200, end: 41299}     # worker daemon RPC: the master connects here to launch executors; one daemon per runtime family and pod
+    workerUi: {start: 41300, end: 41399}      # worker daemon web UI (proxied by the master UI)
+    driverUi: {start: 4040, end: 4056}        # driver web UI (spark.ui.port = start; Spark's retry stays inside Spark's default 16 neighbours)
+    driver: {start: 41000, end: 41099}        # spark.driver.port: executors -> driver
+    blockManager: {start: 41100, end: 41199}  # spark.blockManager.port: executor <-> executor / driver block transfer
+
+# Trust anchor for signed Spark runtime manifests.  Production (the chart's environment) trusts ONLY the public keys (*.pub, PEM) in this directory; the OLCF development key
+# is refused.  Point ONE of these at a Secret or ConfigMap whose keys are file names ending in .pub (public keys, nothing secret); it is mounted read-only into the control plane
+# and every worker pod and OLCF_RUNTIME_TRUST_DIR is set to mountPath.  Empty (default): nothing is mounted, no signed runtime manifest can be installed.
+#   kubectl create configmap olcf-runtime-trust --from-file=ops.pub=./ops.pub     (then:  --set runtimeTrust.existingConfigMap=olcf-runtime-trust)
+runtimeTrust:
+  existingSecret: ""
+  existingConfigMap: ""
+  mountPath: /etc/olcf/runtime-trust
+
+networkPolicy:
+  enabled: true
+  ingressFrom: []                         # extra peers allowed to reach the API (e.g. [{namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: ingress-nginx}}}])
+  allowIngressFromAnywhere: true          # false: only this release's pods (workers, hooks, tests), ingressFrom and monitoring.ingressFrom peers may connect
+  egressAllowAll: true                    # false: the egress rules below (and nothing else) apply
+  monitoring:
+    ingressFrom: []                       # scrapers allowed to reach the API port when allowIngressFromAnywhere=false, e.g. [{namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: monitoring}}}]
+    egressTo: []                          # telemetry sinks for the control plane when egressAllowAll=false: [{to: [{namespaceSelector: {...}}], ports: [{port: 4317, protocol: TCP}]}]
+  workerIngressFrom: []                   # extra peers allowed to reach the Spark ports of the workers (for example an external driver)
+  egress:                                 # used only when egressAllowAll=false
+    dns:                                  # where cluster DNS lives
+      namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: kube-system}}
+      podSelector: {matchLabels: {k8s-app: kube-dns}}
+    database:                             # an external PostgreSQL (the bundled one is selected by its pod labels); narrow the CIDRs to your database
+      cidrs: [0.0.0.0/0]
+      port: 5432
+    https:                                # object storage, the identity provider, Fabric endpoints; also the Kubernetes API server when it listens on 443
+      cidrs: [0.0.0.0/0]
+      ports: [443]
+    apiServer:                            # kubernetesProvider.enabled: the API server when it does not listen on 443 (empty cidrs = the https cidrs)
+      cidrs: []
+      ports: [6443]
+    extra: []                             # further egress rules, verbatim, e.g. S3-compatible storage or JDBC sources reached by Spark: [{to: [{ipBlock: {cidr: 10.2.0.0/16}}], ports: [{port: 9000}]}]
+
+workers:
+  enabled: true
+  replicas: 2
+  pool: default
+  labels: ""                              # k=v,k=v placement labels
+  maxJobs: 2
+  url: ""                                 # default: controlPlane.publicUrl
+  insecureInCluster: false                # lab only: ws:// to the in-cluster service when no publicUrl is set
+  advertiseHost: ""                       # default: the pod IP (executors reach the driver there)
+  resources:
+    requests: {cpu: "2", memory: 8Gi}
+    limits: {memory: 16Gi}
+  persistence:
+    size: 50Gi
+    storageClass: ""
+  extraEnv: []                            # list of {name, value|valueFrom} added to the worker container
+  extraVolumes: []                        # further pod volumes (full Kubernetes volume objects)
+  extraVolumeMounts: []                   # further mounts of the worker container
+  podAnnotations: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  enrollment:
+    ttlSeconds: 86400                     # validity of the single-use enrolment tokens minted by the install/upgrade hook
+    hookImage: ""                         # default: the control-plane image (contains the kubernetes client)
+    adminUser: admin                      # the hook signs in as this user with the chart's admin password ...
+    apiTokenSecret: ""                    # ... or, when you changed that password, with an API token held in this Secret (key: token)
+
+# Kubernetes compute provider: the control plane launches Spark driver pods in this namespace and Spark creates executor pods.
+kubernetesProvider:
+  enabled: false
+  namespace: ""                           # default: the release namespace
+
+rbac:
+  create: true
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+tests:
+  enabled: true

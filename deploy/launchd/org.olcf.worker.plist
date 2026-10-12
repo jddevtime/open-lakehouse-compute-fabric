@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<!-- Copyright (c) 2026 Justin Dodrill -->
+<!--
+  OLCF worker agent as a per-user LaunchAgent.  Enrol once first (the single-use token is read from the OLCF_WORKER_TOKEN environment variable
+  and is not stored); the exact commands are in deploy/README.md.  Then replace __PREFIX__, __STATE_DIR__ and __HOME__ with absolute paths and
+  load the agent with launchctl bootstrap, as described for org.olcf.server.plist.
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>org.olcf.worker</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>__PREFIX__/current/bin/olcf-worker</string>
+		<string>run</string>
+		<string>--state-dir</string>
+		<string>__STATE_DIR__</string>
+	</array>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>HOME</key>
+		<string>__HOME__</string>
+		<key>PATH</key>
+		<string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+		<key>PYTHONUNBUFFERED</key>
+		<string>1</string>
+	</dict>
+	<key>WorkingDirectory</key>
+	<string>__STATE_DIR__</string>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>KeepAlive</key>
+	<dict>
+		<key>SuccessfulExit</key>
+		<false/>
+	</dict>
+	<key>ThrottleInterval</key>
+	<integer>15</integer>
+	<key>ExitTimeOut</key>
+	<integer>90</integer>
+	<key>ProcessType</key>
+	<string>Background</string>
+	<key>Umask</key>
+	<integer>63</integer>
+	<key>SoftResourceLimits</key>
+	<dict>
+		<key>NumberOfFiles</key>
+		<integer>65536</integer>
+	</dict>
+	<key>StandardOutPath</key>
+	<string>__STATE_DIR__/launchd.out.log</string>
+	<key>StandardErrorPath</key>
+	<string>__STATE_DIR__/launchd.err.log</string>
+</dict>
+</plist>

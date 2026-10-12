@@ -1,0 +1,612 @@
+{
+  "approved_spark_conf": [
+    "spark.executor.memory",
+    "spark.executor.cores",
+    "spark.executor.instances",
+    "spark.executor.memoryOverhead",
+    "spark.driver.memory",
+    "spark.driver.cores",
+    "spark.driver.maxResultSize",
+    "spark.cores.max",
+    "spark.default.parallelism",
+    "spark.sql.*",
+    "spark.dynamicAllocation.*",
+    "spark.serializer",
+    "spark.kryoserializer.*",
+    "spark.sql.shuffle.partitions",
+    "spark.memory.*",
+    "spark.speculation*",
+    "spark.task.*",
+    "spark.hadoop.fs.*",
+    "spark.hadoop.parquet.*",
+    "spark.hadoop.mapreduce.*",
+    "spark.databricks.delta.*",
+    "spark.delta.*",
+    "spark.pyspark.*",
+    "spark.executorEnv.*",
+    "spark.ui.*",
+    "spark.eventLog.*",
+    "spark.files.*",
+    "spark.network.timeout",
+    "spark.rpc.*"
+  ],
+  "arch": [
+    "x86_64",
+    "aarch64"
+  ],
+  "build_packages": [
+    {
+      "hashes": [
+        "d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c"
+      ],
+      "name": "packaging",
+      "version": "26.3"
+    },
+    {
+      "hashes": [
+        "95b30ddfb717250edb492926c92b5221f7ef3fbcc2b07579bcd4a27da21d0173"
+      ],
+      "name": "setuptools",
+      "version": "80.10.2"
+    },
+    {
+      "hashes": [
+        "3217dcc807155e45db462d7ef2431f5ddda0d7273b700d05a67b271ceb1287ab"
+      ],
+      "name": "wheel",
+      "version": "0.48.0"
+    }
+  ],
+  "delta": {
+    "version": "3.2.0"
+  },
+  "description": "Legacy runtime aligned to Spark 3.5 / Delta 3.2 / Java 11 / Scala 2.12 / Python 3.11 for notebooks that have not moved to the 2.0 family.",
+  "family": "fabric-1.3-compatible",
+  "iceberg": {
+    "version": "1.11.0"
+  },
+  "id": "olcf-rt-1.3.0",
+  "jars": [
+    {
+      "coordinate": "io.delta:delta-spark_2.12:3.2.0",
+      "group": "core"
+    },
+    {
+      "coordinate": "io.delta:delta-storage:3.2.0",
+      "group": "core"
+    },
+    {
+      "coordinate": "org.apache.hadoop:hadoop-azure:${hadoop.version}",
+      "group": "core"
+    },
+    {
+      "coordinate": "org.apache.hadoop:hadoop-aws:${hadoop.version}",
+      "group": "s3",
+      "optional": true
+    },
+    {
+      "coordinate": "org.apache.iceberg:iceberg-spark-runtime-3.5_2.12:1.11.0",
+      "group": "iceberg",
+      "optional": true
+    }
+  ],
+  "java": {
+    "major": 11,
+    "supported": [
+      8,
+      11,
+      17
+    ]
+  },
+  "os": [
+    "linux",
+    "macos",
+    "windows"
+  ],
+  "packages": [
+    {
+      "hashes": [
+        "6fe0c04218aab65c54c4ff81638cdbf848d89f5653b74d68638a137f200dd16e"
+      ],
+      "marker": "sys_platform == 'darwin'",
+      "name": "appnope",
+      "version": "1.0.0"
+    },
+    {
+      "hashes": [
+        "9da13157f5b28becde0bd374fc677dcd3c290614264eff096f167c469cd9f933"
+      ],
+      "name": "asttokens",
+      "version": "3.0.2"
+    },
+    {
+      "hashes": [
+        "c647aa4a12dfbad9333ca4e71fe62ddc36f4e63b2d260a37a8b83d2f043ac309"
+      ],
+      "name": "attrs",
+      "version": "26.1.0"
+    },
+    {
+      "hashes": [
+        "62f22742b58a1a33014a2b6b706588a8d7e2a88ae7bd1a6ebe8c992928483775"
+      ],
+      "name": "certifi",
+      "version": "2026.7.22"
+    },
+    {
+      "hashes": [
+        "3311ed60d36f83378794e1009ac6258bafbf81f7888b4caa7b35a521e3f95813",
+        "34e261f78cb6ceaaa36f42f2613f4380d94d9c759a9c73c769ee6e0247364632",
+        "398aff33cee2767e3e781d2554c54bd0dff386bb437581e0d8011fde1a942ec1",
+        "42f6930c31dc7f50732c9ae793c2786c7b6b044195967bbdde40bb9be81c4cc0",
+        "c7659f22557c5a0bc4855cd635f55edec690cc008a40768527762cb9fb263455",
+        "c8d2c9fd1f2d16f780d15127abb050d13d1a76c03a4bd87d7e4980e45e511e12"
+      ],
+      "marker": "implementation_name == 'pypy'",
+      "name": "cffi",
+      "version": "2.1.1"
+    },
+    {
+      "hashes": [
+        "1c50fe28bbc2ced33386f298650d91218076c05420e6cbd790b913adc41659e7",
+        "211d5a3eb6af8f513b8d4ca19a8c1b7accab1b5f0d3175f9826b03c1a920dc1f",
+        "254eb48b9fa5ee9898a3c445825a1f340fe53712a098904b39b0bddba8ea3cb1",
+        "3d21b8b13c7592db2ac5e544a6d83187b995257472b0c9e8351b6d507ae37ed6",
+        "40ab6bffa02ae10a0581e6c198be7d2d8ca5c2a0c64e4ed3465d766df457573e",
+        "4275811936e2f06feff5e598fb42a1b7ae852da8e39605211892b56b81a34efd",
+        "87e50a3e7cb90af586b6c5faf23e302a970415ac73bd7bd90a515a04b427ef96",
+        "9f56f72050826f63dcee7a7f55b0a77168cb3bfc553fd405e7f8f9ece75a4036",
+        "b6b751274acb69d77b3323d6b7dbaa3c7fdfc1eb829b7eb61d262f32e1af9685",
+        "d19fbd981a488e22cd04883659ca6b08f50b5974f9fd7c95655ef6a043e5893f",
+        "d760fe2a4d7c3b226cb9026d6a842868d52a7901bd98420e1baf14e80da85cf5"
+      ],
+      "name": "charset-normalizer",
+      "version": "3.5.2"
+    },
+    {
+      "hashes": [
+        "4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6"
+      ],
+      "marker": "sys_platform == 'win32'",
+      "name": "colorama",
+      "version": "0.4.6"
+    },
+    {
+      "hashes": [
+        "c615d91d75f7f04f095b30d1c1711babd43bdc6419c1be9886a85f2f4e489417"
+      ],
+      "name": "comm",
+      "version": "0.2.3"
+    },
+    {
+      "hashes": [
+        "192b73e8d53bbd60225220c0943627bf249ac93d0ea3090e23c45f3e0ceb6a35",
+        "1e76339d5510bc17e9181dba9577508afcb21aad5728f1a55ef74d7d97d255f3",
+        "66e4ac3d6e7026e83e7d93d7ee2f51dd4a4e8dff673578d424e60796893e5b2c",
+        "a9e9d3550e15ca479c59333e90845029190531f0cacfedab3b815a57bd913947"
+      ],
+      "name": "debugpy",
+      "version": "1.8.22"
+    },
+    {
+      "hashes": [
+        "c4ff3fa7218e58a702cb71eb64384b0005c4d6f0bbdd0fe0b38a53564d946e09"
+      ],
+      "name": "delta-spark",
+      "version": "3.2.0"
+    },
+    {
+      "hashes": [
+        "760643d3452b4d777d295bb167ccc74c64a81df23fb5e08eff250c425a4b2017"
+      ],
+      "name": "executing",
+      "version": "2.2.1"
+    },
+    {
+      "hashes": [
+        "0fb3915616adac85ccfdd737d26be1089845d2019819505b42d39888458f74d4"
+      ],
+      "name": "fastjsonschema",
+      "version": "2.22.2"
+    },
+    {
+      "hashes": [
+        "ab7ae7122974553370f0bdb919e1a960b2cd1bc1ef0276416d896db81c14582c"
+      ],
+      "name": "idna",
+      "version": "3.20"
+    },
+    {
+      "hashes": [
+        "bba5600596a7e21f3eef53281cf28d6a5195634d2f2b78ff9501a3272c6eaab0"
+      ],
+      "name": "importlib-metadata",
+      "version": "9.0.1"
+    },
+    {
+      "hashes": [
+        "a6757f790ddc5a6006b813d82da1a9dbb65b3a00f2b6607df776418c6566ec1c"
+      ],
+      "name": "ipykernel",
+      "version": "7.4.0"
+    },
+    {
+      "hashes": [
+        "6d1645743cfd1a07eb695d85aa2b5fa66721f8cbae9431d4049f7084bbf06509"
+      ],
+      "name": "ipython",
+      "version": "9.17.1"
+    },
+    {
+      "hashes": [
+        "a9462224a505ade19a605f71f8fa63c2048833ce50abc86768a0d81d876dc81c"
+      ],
+      "name": "ipython-pygments-lexers",
+      "version": "1.1.1"
+    },
+    {
+      "hashes": [
+        "7bdd9c2634f56713299976f4cbd59cb3fa92165cc5e05ea811fb253480728b67"
+      ],
+      "name": "jedi",
+      "version": "0.20.0"
+    },
+    {
+      "hashes": [
+        "d489f15263b8d200f8387e64b4c3a75f06629559fb73deb8fdfb525f2dab50ce"
+      ],
+      "name": "jsonschema",
+      "version": "4.26.0"
+    },
+    {
+      "hashes": [
+        "98802fee3a11ee76ecaca44429fda8a41bff98b00a0f2838151b113f210cc6fe"
+      ],
+      "name": "jsonschema-specifications",
+      "version": "2025.9.1"
+    },
+    {
+      "hashes": [
+        "5f73f24f22fa25192cfff6b23c051932a2473a797b05734aff495b392103e14e"
+      ],
+      "name": "jupyter-client",
+      "version": "8.10.0"
+    },
+    {
+      "hashes": [
+        "ebf87fdc6073d142e114c72c9e29a9d7ca03fad818c5d300ce2adc1fb0743407"
+      ],
+      "name": "jupyter-core",
+      "version": "5.9.1"
+    },
+    {
+      "hashes": [
+        "3c821cf1c209f59fb2d2d64abbf5b23b67bcb2210d663f9918dd851c6da1fcf6"
+      ],
+      "name": "matplotlib-inline",
+      "version": "0.2.2"
+    },
+    {
+      "hashes": [
+        "cc6698fa75f4fab8755ead786317815f13a6fee3b53311c0abb1a8b51d52f7ec"
+      ],
+      "name": "nbformat",
+      "version": "5.11.1"
+    },
+    {
+      "hashes": [
+        "2bc87bdca654e719425145f5e84eaeb0080b013fdd47d65729a7d66243f4987c"
+      ],
+      "name": "nest-asyncio2",
+      "version": "1.7.3"
+    },
+    {
+      "hashes": [
+        "2a02aba9ed12e4ac4eb3ea9421c420301a0c6460d9830d74a9df87efa4912010",
+        "4c66707fabe114439db9068ee468c26bbdf909cac0fb58686a42a24de1760c71",
+        "666dbfb6ec68962c033a450943ded891bed2d54e6755e35e5835d63f4f6931d5",
+        "7ab55401287bfec946ced39700c053796e7cc0e3acbef09993a9ad2adba6ca6e",
+        "cd25bcecc4974d09257ffcd1f098ee778f7834c3ad767fe5db785be9a4aa9cb2",
+        "edd8b5fe47dab091176d21bb6de568acdd906d1887a4584a15a9a96a1dca06ef"
+      ],
+      "name": "numpy",
+      "version": "1.26.4"
+    },
+    {
+      "hashes": [
+        "d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c"
+      ],
+      "name": "packaging",
+      "version": "26.3"
+    },
+    {
+      "hashes": [
+        "3fc6873a41186404dad67245896a6e440baacc92f5b716ccd1bc9ed2995ab2c5",
+        "4f18ba62b61d7e192368b84517265a99b4d7ee8912f8708660fb4a366cc82667",
+        "66108071e1b935240e74525006034333f98bcdb87ea116de573a6a0dccb6c039",
+        "7c2875855b0ff77b2a64a0365e24455d9990730d6431b9e0ee18ad8acee13dbd",
+        "c124333816c3a9b03fbeef3a9f230ba9a737e9e5bb4060aa2107a86cc0a497fc",
+        "cd8d0c3be0515c12fed0bdbae072551c8b54b7192c7b1fda0ba56059a0179698"
+      ],
+      "name": "pandas",
+      "version": "2.2.3"
+    },
+    {
+      "hashes": [
+        "a8926eb2a1b915486941fdbd31e86a4baf88fe8c210f25f2f35ecec5b574ca1c"
+      ],
+      "name": "parso",
+      "version": "0.8.7"
+    },
+    {
+      "hashes": [
+        "7236d1e080e4936be2dc3e326cec0af72acf9212a7e1d060210e70a47e253523"
+      ],
+      "marker": "sys_platform != 'emscripten' and sys_platform != 'win32'",
+      "name": "pexpect",
+      "version": "4.9.0"
+    },
+    {
+      "hashes": [
+        "080f3b39423b5abfca9a23d84c4e9795f54d395cd8459867a8ded44084fcd5f8"
+      ],
+      "name": "platformdirs",
+      "version": "4.12.3"
+    },
+    {
+      "hashes": [
+        "01c0891d7f9237d5e339f7d3e42cdae80b7534abb1c7c0e3352efba6231492f2"
+      ],
+      "name": "prompt-toolkit",
+      "version": "3.0.53"
+    },
+    {
+      "hashes": [
+        "076a2d2f923fd4821644f5ba89f059523da90dc9014e85f8e45a5774ca5bc6f9",
+        "1a7b04c10f32cc88ab39cbf606e117fd74721c831c98a27dc04578deb0c16979",
+        "8c233660f575a5a89e6d4cb65d9f938126312bca76d8fe087b947b3a1aaac9ee",
+        "b0726cecd84f9474419d67252add4ac0cd9811b04d61123054b9fb6f57df6e9e",
+        "eb7e81434c8d223ec4a219b5fc1c47d0417b12be7ea866e24fb5ad6e84b3d988",
+        "ed0cace939114f62738d808fdcecd4c869222507e266e574799e9c0faa17d486"
+      ],
+      "name": "psutil",
+      "version": "7.2.2"
+    },
+    {
+      "hashes": [
+        "4b41f3967fce3af57cc7e94b888626c18bf37a083e3651ca8feeb66d492fef35"
+      ],
+      "marker": "sys_platform != 'emscripten' and sys_platform != 'win32'",
+      "name": "ptyprocess",
+      "version": "0.7.0"
+    },
+    {
+      "hashes": [
+        "96cae060a313cfaad51bb761278bfb0e62dc0248d9315a81173752dc546cd37a"
+      ],
+      "name": "pure-eval",
+      "version": "0.2.4"
+    },
+    {
+      "hashes": [
+        "85defdfd2b2376eb3abf5ca6474b51ab7e0de341c75a02f46dc9b5976f5a5c1b"
+      ],
+      "name": "py4j",
+      "version": "0.10.9.7"
+    },
+    {
+      "hashes": [
+        "0b72e87fe3e1db343995562f7fff8aee354b55ee83d13afba65400c178ab2597",
+        "1c8856e2ef09eb87ecf937104aacfa0708f22dfeb039c363ec99735190ffb977",
+        "2e19f569567efcbbd42084e87f948778eb371d308e137a0f97afe19bb860ccb3",
+        "4beca9521ed2c0921c1023e68d097d0299b62c362639ea315572a58f3f50fd28",
+        "6b244dc8e08a23b3e352899a006a26ae7b4d0da7bb636872fa8f5884e70acf15",
+        "a27532c38f3de9eb3e90ecab63dfda948a8ca859a66e3a47f5f42d1e403c4d03",
+        "dc5c31c37409dfbc5d014047817cb4ccd8c1ea25d19576acf1a001fe07f5b420",
+        "e3343cb1e88bc2ea605986d4b94948716edc7a8d14afd4e2c097232f729758b4"
+      ],
+      "name": "pyarrow",
+      "version": "17.0.0"
+    },
+    {
+      "hashes": [
+        "b727414169a36b7d524c1c3e31839a521725078d7b2ff038656844266160a992"
+      ],
+      "marker": "implementation_name == 'pypy'",
+      "name": "pycparser",
+      "version": "3.0"
+    },
+    {
+      "hashes": [
+        "2363c69b61c4a97c838da3b130dcd6468f4848992b21a82f2a63ec34377137d9"
+      ],
+      "name": "pygments",
+      "version": "2.21.0"
+    },
+    {
+      "hashes": [
+        "6effc9ce98edf231f4d683fd14f7270629bf8458c628d6a2620ded4bb34f3cb9"
+      ],
+      "name": "pyspark",
+      "version": "3.5.5"
+    },
+    {
+      "hashes": [
+        "a8b2bc7bffae282281c8140a97d3aa9c14da0b136dfe83f850eea9a5f7470427"
+      ],
+      "name": "python-dateutil",
+      "version": "2.9.0.post0"
+    },
+    {
+      "hashes": [
+        "e658af3757f9e26a9d25dd2aff38335acd92bc9104f890a894b2c1ba28311b03"
+      ],
+      "name": "pytz",
+      "version": "2026.5"
+    },
+    {
+      "hashes": [
+        "39755dc4a923021bd0677990ffdbc21cff0e1ee1cf07fe3817acea153ef4cb67",
+        "468139ddb2e494d06e586bd3a6835077e8b3764560c8db552fe685c5867fc24e",
+        "8b86e04f55af0f4d8cd8ecf14c0b8b81ebc8fd66fa20126b753514628ecadc7e",
+        "917d601e9540098f580d2723d0ce6402cdb6f02bc8dc2de74e0dca6e13bffd1b",
+        "9216132843d139a123f243c07fe70f7487dce5041093dd77040f9adb5dc91872"
+      ],
+      "name": "pyzmq",
+      "version": "27.2.0"
+    },
+    {
+      "hashes": [
+        "381329a9f99628c9069361716891d34ad94af76e461dcb0335825aecc7692231"
+      ],
+      "name": "referencing",
+      "version": "0.37.0"
+    },
+    {
+      "hashes": [
+        "2a0d60c172f83ac6ab31e4554906c0f3b3588d37b5cb939b1c061f4907e278e0"
+      ],
+      "name": "requests",
+      "version": "2.34.2"
+    },
+    {
+      "hashes": [
+        "136a1c3fe4402b7008bc81cb62ee538481795b61a7e83df88dff3b3f02b726ff",
+        "2711d29b653b3bce48a63d18b9c6b53274669e6d6c4094dddeb4d9a0e45128b2",
+        "3231c4c0e521dafa5be0c9f114ee2c2ad46650836f2d72caa86801950c3e7044",
+        "ce4d4f52e2a4324396caddbd45a97d8d7be5f42edd25d2355282a9c34f9b2f7f",
+        "e01b3c878c8641913e688edd1b3f08658c6783d29cf6b826bd3c0d1ae7a1ffaa",
+        "fdcd198979b4ecffcc1beba366a7fbcf4eb41243691a82fe52ceb0b902f09c12"
+      ],
+      "name": "rpds-py",
+      "version": "2026.9.1"
+    },
+    {
+      "hashes": [
+        "4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274"
+      ],
+      "name": "six",
+      "version": "1.17.0"
+    },
+    {
+      "hashes": [
+        "d5558e0c25a4cb0853cddad3d77da9891a08cb85dd9f9f91b9f8cd66e511e695"
+      ],
+      "name": "stack-data",
+      "version": "0.6.3"
+    },
+    {
+      "hashes": [
+        "37ae8f150cecfdbf747fc4e12f5e9a97ecd8cf1d4cdb3f119e2de84b11196918",
+        "69acca6501eed74582b76dbbceee2a91613f54728e3e418346000d7103101676",
+        "83e6cf438b106c6b3852d70960967bb1b70c87438050dca0981e4b9aa751a4c1",
+        "9261783640e23258694a9ff0795df430a5a7b0a651d3dd53dd0969ad6be16da7",
+        "bdf942448169e5336451d0494d7e3d81cfa726d5aa312affdc4682dd62a62f6d",
+        "ce045d3c298fddd30e89a2777f97039d1b641eb9518ac7b26a4721903539c694"
+      ],
+      "name": "tornado",
+      "version": "6.5.10"
+    },
+    {
+      "hashes": [
+        "f775618166caa0396c8e337099240f2bd3e5e917d203b2e6fbe21a58d3cb1f6b"
+      ],
+      "name": "traitlets",
+      "version": "5.16.1"
+    },
+    {
+      "hashes": [
+        "481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8"
+      ],
+      "name": "typing-extensions",
+      "version": "4.16.0"
+    },
+    {
+      "hashes": [
+        "b683bd1b6659ddcd810ff02ad09ba821d4bf1065072805063eb35c49617905ac"
+      ],
+      "name": "tzdata",
+      "version": "2026.5"
+    },
+    {
+      "hashes": [
+        "0cf3cae568d36aa9576b28dfb35f11328f1cb974ca7647d9475ebb86c75ac6e3"
+      ],
+      "name": "urllib3",
+      "version": "2.8.0"
+    },
+    {
+      "hashes": [
+        "2a9746de704242bd4fdaabb31dd46b82f694a56a8d21081ad89b679a89da9fec",
+        "674b518af28d38ee645ff97b74f5760abee5fad4bac74413bfc4b881ef2ce724",
+        "751bef0ab404b6a1dc028b56b4b85d46486be1c55833f80da533e42dc691f389",
+        "7ef5a940bd5e30bac6e721f1a48fce0cd7bb3ece19e9c5d139e72c76c35cfd07",
+        "89ca642c5bf0101157a09366be69fad0379db1f700ae39a920e103234573670e",
+        "ae0800c5339423cc53d33a266ad264b42ba8aaa16d4464f6e6b1bee607f50b17",
+        "b9c6ab615e03723b7f8760ea2f27758d656e7e13b51515c9dca5c3e8b04612fa"
+      ],
+      "name": "wcwidth",
+      "version": "0.9.2"
+    },
+    {
+      "hashes": [
+        "8979f52d874162f485ff2981e3891f3a3317b7a3dd43ff1e1775b9304f307a9c"
+      ],
+      "name": "zipp",
+      "version": "4.1.1"
+    }
+  ],
+  "provided_jars": [
+    "org.apache.hadoop:hadoop-client-*",
+    "org.apache.hadoop:hadoop-common",
+    "org.apache.hadoop:hadoop-hdfs*",
+    "org.apache.hadoop:hadoop-auth",
+    "org.apache.hadoop:hadoop-annotations",
+    "org.apache.hadoop:hadoop-yarn-*",
+    "org.apache.hadoop:hadoop-mapreduce-*",
+    "org.apache.spark:*",
+    "org.scala-lang:*",
+    "org.scala-lang.modules:*",
+    "org.slf4j:*",
+    "org.apache.logging.log4j:*",
+    "log4j:*",
+    "commons-logging:commons-logging",
+    "javax.servlet:*",
+    "jakarta.servlet:*"
+  ],
+  "python": {
+    "version": "3.11"
+  },
+  "scala": "2.12",
+  "schema": "olcf.runtime.manifest/1",
+  "signature": {
+    "alg": "ed25519",
+    "key_id": "8ea01f731883a91d",
+    "signed_at": "2026-10-07T15:38:04.286553Z",
+    "value": "dqzfltH4XyhtKArsKGlruU8qlLRhDPEFRJyZNL+sgj94B9/eydMb19RZyuUwm0uceEnotD38LpnwJCUxXOz/Bg=="
+  },
+  "spark": {
+    "version": "3.5.5"
+  },
+  "spark_conf_defaults": {
+    "spark.sql.adaptive.enabled": "true",
+    "spark.sql.ansi.enabled": "false",
+    "spark.sql.parquet.compression.codec": "zstd",
+    "spark.sql.session.timeZone": "UTC",
+    "spark.ui.enabled": "true"
+  },
+  "title": "OLCF Runtime 1.3 (Fabric Runtime 1.3 Compatible, legacy): Spark 3.5.5, Delta 3.2.0, Java 11, Scala 2.12, Python 3.11",
+  "verify": {
+    "imports": [
+      "pyspark",
+      "delta",
+      "pandas",
+      "pyarrow",
+      "ipykernel",
+      "jupyter_client",
+      "nbformat"
+    ],
+    "smoke": "spark"
+  },
+  "version": "1.3.0"
+}

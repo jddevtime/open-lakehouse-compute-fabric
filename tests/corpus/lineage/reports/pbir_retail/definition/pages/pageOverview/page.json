@@ -1,0 +1,22 @@
+{
+  "name": "pageOverview",
+  "displayName": "Overview",
+  "filterConfig": {
+    "filters": [
+      {
+        "name": "pf1",
+        "field": {
+          "Column": {
+            "Expression": {
+              "SourceRef": {
+                "Entity": "Customer"
+              }
+            },
+            "Property": "Country"
+          }
+        },
+        "type": "Categorical"
+      }
+    ]
+  }
+}

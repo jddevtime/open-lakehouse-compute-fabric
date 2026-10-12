@@ -1,0 +1,59 @@
+{
+  "analyzer_version": "1.0.0",
+  "blocked": false,
+  "blockers": [],
+  "child_notebooks": [
+    {
+      "cell": 1,
+      "dynamic": false,
+      "line": 2,
+      "name": "child_load"
+    },
+    {
+      "cell": 2,
+      "dynamic": false,
+      "line": 1,
+      "name": "child_load"
+    },
+    {
+      "cell": 2,
+      "dynamic": false,
+      "line": 1,
+      "name": "child_validate"
+    }
+  ],
+  "counts": {
+    "compatibility-shim": 3,
+    "deterministic-rewrite": 0,
+    "fabric-only-fallback": 0,
+    "native-portable": 0,
+    "unsupported": 0,
+    "warning": 0
+  },
+  "data_references": {
+    "paths": [],
+    "tables": []
+  },
+  "imports": [
+    "json"
+  ],
+  "inlined_runs": [],
+  "packages": [],
+  "parameters": [
+    [
+      "batch",
+      1,
+      "int"
+    ]
+  ],
+  "pip_requirements": [],
+  "rewrites": [],
+  "rule_counts": {
+    "FAB-NBU-NOTEBOOK": 3
+  },
+  "ruleset_version": "1.0.0",
+  "secret_refs": [],
+  "shims_required": [
+    "notebook"
+  ]
+}

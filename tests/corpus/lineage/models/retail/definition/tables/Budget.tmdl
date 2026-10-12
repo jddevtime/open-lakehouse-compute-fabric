@@ -1,0 +1,12 @@
+table Budget
+
+	column Amount
+		dataType: decimal
+
+	partition Budget = m
+		mode: import
+		source =
+				let
+				    Source = Sql.Database(ServerName, DatabaseName){[Schema="dbo",Item=Table]}[Data]
+				in
+				    Source

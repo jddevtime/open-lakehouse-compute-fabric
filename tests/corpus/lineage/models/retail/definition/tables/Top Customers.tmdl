@@ -1,0 +1,5 @@
+table 'Top Customers'
+
+	partition 'Top Customers' = calculated
+		mode: import
+		source = TOPN(10, Customer, [Total Revenue])

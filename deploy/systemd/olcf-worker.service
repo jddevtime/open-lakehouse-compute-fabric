@@ -1,0 +1,62 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Justin Dodrill
+#
+# OLCF worker agent (runs Spark drivers/executors for jobs) as a hardened system service on a separate machine.
+#   1. on the control plane:   olcf worker enroll-token --name $(hostname)        -> shows a single-use token once
+#   2. here:                   read -rs OLCF_WORKER_TOKEN && export OLCF_WORKER_TOKEN        (paste the token; it stays out of ps and shell history)
+#                              sudo --preserve-env=OLCF_WORKER_TOKEN -u olcf /opt/olcf/current/bin/olcf-worker run --enroll-only \
+#                                   --url https://olcf.example.com --state-dir /var/lib/olcf-worker --name "$(hostname)"
+#      the token is single use and is not stored; only the resulting identity is
+#   3. sudo cp deploy/systemd/olcf-worker.service /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now olcf-worker
+# After the enrolment the identity lives in /var/lib/olcf-worker/identity.json (mode 0600) and the token is spent.
+[Unit]
+Description=Open Lakehouse Compute Fabric - worker
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=olcf
+Group=olcf
+UMask=0077
+WorkingDirectory=/var/lib/olcf-worker
+EnvironmentFile=-/etc/olcf/olcf-worker.env
+Environment=PYTHONUNBUFFERED=1
+Environment=HOME=/var/lib/olcf-worker
+ExecStart=/opt/olcf/current/bin/olcf-worker run --state-dir /var/lib/olcf-worker
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=120
+KillMode=mixed
+KillSignal=SIGTERM
+
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/olcf-worker
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+RestrictNamespaces=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+LockPersonality=true
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+CapabilityBoundingSet=
+AmbientCapabilities=
+# Spark executors need a large number of file descriptors and threads; the JVM needs W+X memory (no MemoryDenyWriteExecute)
+LimitNOFILE=1048576
+TasksMax=infinity
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,12 @@
+{
+  "data_run": "notebook",
+  "description": "%run of a bundled notebook (inlined) and a %%pyspark language cell magic",
+  "engine": "python",
+  "extra_lakehouses": [],
+  "name": "magics",
+  "needs": "",
+  "parameters": {},
+  "primary_format": "fabricGitSource",
+  "standalone_engine": "python",
+  "why": ""
+}

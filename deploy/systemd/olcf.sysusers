@@ -1,0 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Justin Dodrill
+# systemd-sysusers(8): the unprivileged account both services run as
+u olcf - "Open Lakehouse Compute Fabric" /var/lib/olcf /usr/sbin/nologin

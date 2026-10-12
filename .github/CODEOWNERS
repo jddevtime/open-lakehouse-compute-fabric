@@ -1,0 +1,11 @@
+*                          @jddevtime
+
+# Contracts and security-sensitive areas always need the owner's review.
+/docs/dev/CONTRACTS.md     @jddevtime
+/src/olcf/security/        @jddevtime
+/src/olcf/ops/             @jddevtime
+/.github/                  @jddevtime
+/deploy/                   @jddevtime
+/SECURITY.md               @jddevtime
+/LICENSE                   @jddevtime
+/NOTICE                    @jddevtime

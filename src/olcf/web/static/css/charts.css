@@ -1,0 +1,71 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+/* Copyright (c) 2026 Justin Dodrill */
+/* Chart library styles: recessive chrome, loud data. */
+.chart { margin: 0; background: var(--chart-surface); border-radius: var(--r-sm); display: flex; flex-direction: column; min-width: 0; }
+.chart-head { display: flex; align-items: flex-start; gap: var(--s-2); padding: 0 0 6px; }
+.chart-title { font-weight: 620; font-size: var(--fs-md); color: var(--ink); }
+.chart-sub { font-size: var(--fs-xs); color: var(--ink-3); }
+.chart-tools { display: flex; gap: 2px; opacity: 0.55; transition: opacity 0.12s; }
+.chart:hover .chart-tools, .chart:focus-within .chart-tools { opacity: 1; }
+.ctool { width: 24px; height: 24px; display: grid; place-items: center; border: 0; background: none; border-radius: 4px; color: var(--ink-3); cursor: pointer; }
+.ctool:hover, .ctool[aria-pressed="true"] { background: var(--surface-3); color: var(--ink); }
+.chart-body { position: relative; min-width: 0; }
+.chart-svg { display: block; overflow: visible; max-width: none; font-family: var(--font-ui); }
+.chart-svg .ct { fill: var(--chart-muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.chart-svg .ct.ink { fill: var(--ink-2); }
+.chart-svg .ct.strong { fill: var(--ink); font-weight: 620; }
+.chart-svg .gridline { stroke: var(--chart-grid); stroke-width: 1; }
+.chart-svg .axis { stroke: var(--chart-axis); stroke-width: 1; }
+.chart-svg .crosshair { stroke: var(--chart-axis); stroke-width: 1; }
+.chart-svg .line { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.chart-svg .area { opacity: 0.1; }
+.chart-svg .dot { stroke: var(--chart-surface); stroke-width: 2; }
+.chart-svg .bar, .chart-svg .slice, .chart-svg .hm-cell { transition: opacity 0.1s, filter 0.1s; outline: none; }
+.chart-svg .bar.hot, .chart-svg .bar:focus-visible, .chart-svg .slice.hot, .chart-svg .slice:focus-visible, .chart-svg .hm-cell:hover, .chart-svg .hm-cell:focus-visible { filter: brightness(1.12) saturate(1.1); stroke: var(--ink); stroke-width: 1.5; }
+.chart-svg .hm-empty { fill: var(--surface-3); opacity: 0.5; }
+.chart-svg .pt { fill-opacity: 0.8; stroke: var(--chart-surface); stroke-width: 1; }
+.chart-svg .donut-total { fill: var(--ink); font-size: 20px; font-weight: 640; }
+.chart-svg:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+.legend { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: var(--fs-xs); color: var(--ink-2); }
+.legend li { display: inline-flex; align-items: center; gap: 6px; }
+.key { display: inline-block; flex: none; background: var(--k); }
+.key.rect { width: 10px; height: 10px; border-radius: 3px; }
+.key.line { width: 14px; height: 2px; border-radius: 1px; vertical-align: middle; }
+.ctip { position: absolute; z-index: 5; pointer-events: none; background: var(--surface); color: var(--ink); border: 1px solid var(--line-2); border-radius: var(--r-sm); box-shadow: var(--shadow-2); padding: 7px 10px; font-size: var(--fs-xs); min-width: 120px; max-width: 280px; }
+.ctip-title { color: var(--ink-3); margin-bottom: 4px; font-weight: 560; overflow-wrap: anywhere; }
+.ctip-row { display: flex; align-items: center; gap: 7px; padding: 1px 0; }
+.ctip-row b { font-weight: 660; font-variant-numeric: tabular-nums; color: var(--ink); }
+.ctip-name { color: var(--ink-2); overflow-wrap: anywhere; }
+.chart-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; color: var(--ink-3); font-size: var(--fs-sm); }
+.chart-empty .icon { width: 26px; height: 26px; color: var(--line-strong); }
+.chart-table { overflow: auto; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface); }
+.donut-wrap { display: flex; align-items: center; gap: var(--s-5); flex-wrap: wrap; justify-content: center; }
+.donut-legend { list-style: none; margin: 0; padding: 0; flex: 1 1 140px; min-width: 140px; font-size: var(--fs-sm); display: flex; flex-direction: column; gap: 7px; color: var(--ink-2); }
+.donut-legend li { display: flex; align-items: center; gap: 8px; }
+.donut-legend b { color: var(--ink); font-variant-numeric: tabular-nums; }
+.cellbar { position: relative; display: block; min-width: 110px; height: 20px; line-height: 20px; text-align: right; padding: 0 6px; }
+.cellbar i { position: absolute; left: 0; top: 3px; bottom: 3px; background: var(--seq-2); opacity: 0.55; border-radius: 0 3px 3px 0; }
+.cellbar span { position: relative; font-variant-numeric: tabular-nums; }
+
+/* KPI */
+.kpi { margin: 0; display: flex; flex-direction: column; gap: 2px; height: 100%; justify-content: center; position: relative; min-width: 0; }
+.kpi-label { font-size: var(--fs-sm); color: var(--ink-2); font-weight: 560; }
+.kpi-value { font-size: 34px; font-weight: 680; letter-spacing: -0.03em; line-height: 1.1; color: var(--ink); }
+.kpi.compact .kpi-value { font-size: 26px; }
+.kpi-delta { display: inline-flex; align-items: center; gap: 3px; font-size: var(--fs-xs); font-weight: 620; }
+.kpi-delta.up { color: var(--st-ok-ink); } .kpi-delta.down { color: var(--st-bad-ink); }
+.kpi-delta .muted { font-weight: 400; margin-left: 2px; }
+.kpi-spark { position: absolute; right: 0; bottom: 4px; width: 46%; height: 30px; opacity: 0.9; }
+.kpi-spark .line { fill: none; stroke: var(--ink-3); stroke-width: 1.6; vector-effect: non-scaling-stroke; }
+.kpi-spark .dot { fill: var(--series-1); stroke: var(--chart-surface); stroke-width: 2; }
+
+/* platform stat tiles */
+.stat { display: flex; flex-direction: column; gap: 3px; padding: var(--s-4); background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); box-shadow: var(--shadow-1); text-decoration: none; color: inherit; position: relative; min-width: 0; }
+a.stat:hover { border-color: var(--line-strong); }
+.stat-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.stat-label { font-size: var(--fs-sm); color: var(--ink-2); font-weight: 560; }
+.stat-value { font-size: 30px; font-weight: 680; letter-spacing: -0.03em; line-height: 1.15; font-variant-numeric: proportional-nums; }
+.stat-sub { font-size: var(--fs-xs); color: var(--ink-3); }
+.stat .kpi-spark { right: 12px; bottom: 12px; }
+
+@media (forced-colors: active) { .chart-svg .bar, .chart-svg .slice { stroke: CanvasText; stroke-width: 1; } }

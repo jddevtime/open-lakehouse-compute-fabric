@@ -1,0 +1,42 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.hypothesis/
+*.egg-info/
+dist/
+build/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+node_modules/
+olcf-data/
+*.db
+*.db-wal
+*.db-shm
+
+# Test and tool artifacts
+junit*.xml
+test-results/
+playwright-report/
+.tox/
+.nox/
+
+# macOS metadata
+.DS_Store
+
+# Local environment files; the committed templates are the .example files
+.env
+.env.*
+*.env
+!.env.example
+!*.env.example
+
+# Local keys and certificates.  The development signing key under src/olcf/runtime/keys is public on purpose (see its README) and must stay tracked;
+# it is never a production trust anchor.
+*.pem
+*.key
+!src/olcf/runtime/keys/olcf-dev.key

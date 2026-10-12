@@ -1,0 +1,9 @@
+region,rep,month,amount
+east,ann,2026-01,100
+east,ann,2026-02,150
+east,bob,2026-01,90
+east,bob,2026-02,95
+west,cy,2026-01,200
+west,cy,2026-02,180
+west,di,2026-01,60
+west,di,2026-02,70

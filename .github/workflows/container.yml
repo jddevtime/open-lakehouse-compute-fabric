@@ -1,0 +1,136 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Justin Dodrill
+#
+# Container images and the Helm chart: build both images, smoke-test the all-in-one container, validate compose and the chart with the real tools.
+# Images are pushed to GHCR only by release.yml (tags); this workflow never pushes.
+name: container
+
+on:
+  push:
+    branches: [main]
+    paths: ["deploy/**", "src/**", "pyproject.toml", ".github/workflows/container.yml"]
+  pull_request:
+    paths: ["deploy/**", "src/**", "pyproject.toml", ".github/workflows/container.yml"]
+  workflow_dispatch:
+  workflow_call:                # reused by release.yml as a release gate
+
+permissions:
+  contents: read
+
+# github.workflow is the calling workflow's name under workflow_call: a release run has its own group and neither cancels nor is cancelled by the push/PR run.
+concurrency:
+  group: container-gate-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.workflow == 'container' }}
+
+jobs:
+  build:
+    name: build + smoke test (${{ matrix.image }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {image: olcf, dockerfile: deploy/Dockerfile}
+          - {image: olcf-worker, dockerfile: deploy/Dockerfile.worker}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: hadolint
+        uses: hadolint/hadolint-action@v3.1.0
+        with: {dockerfile: "${{ matrix.dockerfile }}", failure-threshold: error}
+      - name: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          load: true
+          tags: ${{ matrix.image }}:ci
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
+      - name: image runs as non-root, read-only rootfs works
+        run: |
+          test "$(docker run --rm --entrypoint id ${{ matrix.image }}:ci -u)" = 10001
+          docker run --rm --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges \
+            --entrypoint /opt/olcf/bin/python ${{ matrix.image }}:ci -c "import olcf; print(olcf.__file__)"
+      - name: control plane starts and becomes healthy (read-only, non-root, generated first-run credentials)
+        if: matrix.image == 'olcf'
+        run: |
+          key=$(openssl rand -base64 32); jwt=$(openssl rand -base64 48)
+          docker run -d --name olcf-smoke --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges \
+            -v olcf-smoke-data:/data -e OLCF_MASTER_KEY="$key" -e OLCF_JWT_SIGNING_KEY="$jwt" -e OLCF_ADMIN_PASSWORD="ci-only-Passw0rd-123" \
+            -e OLCF_SERVE_ARGS=--no-embedded-worker -p 127.0.0.1:18470:8470 olcf:ci
+          for _ in $(seq 1 60); do
+            s=$(docker inspect -f '{{.State.Health.Status}}' olcf-smoke); echo "health: $s"
+            [ "$s" = healthy ] && break; sleep 3
+          done
+          [ "$s" = healthy ] || { docker logs olcf-smoke; exit 1; }
+          curl -fsS http://127.0.0.1:18470/v1/health
+          docker exec olcf-smoke olcf --version
+          if docker logs olcf-smoke 2>&1 | grep -q 'ci-only-Passw0rd-123'; then echo "the administrator password leaked into the log"; exit 1; fi
+          docker rm -f olcf-smoke; docker volume rm olcf-smoke-data
+      - name: scan image (Trivy)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ matrix.image }}:ci
+          severity: CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+
+  compose:
+    name: docker compose config
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: validate every profile
+        run: |
+          sh deploy/scripts/gen-env.sh --force
+          for p in allinone cluster "allinone --profile tls" "cluster --profile tls"; do
+            # shellcheck disable=SC2086  # $p is a deliberate multi-word profile list
+            docker compose --env-file deploy/.env -f deploy/docker-compose.yml --profile $p config -q
+          done
+
+  helm:
+    name: Helm chart (lint, template, kubeconform)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+      - uses: astral-sh/setup-uv@v5
+      - name: lint + template for every CI values file
+        run: |
+          for v in lab production; do
+            helm lint deploy/helm/olcf -f deploy/helm/olcf/ci/$v-values.yaml --strict
+            helm template olcf deploy/helm/olcf -n olcf -f deploy/helm/olcf/ci/$v-values.yaml > /tmp/$v.yaml
+          done
+          mkdir -p rendered && cp /tmp/lab.yaml rendered/lab.yaml
+      - name: kubeconform (strict, Kubernetes 1.29 and 1.31)
+        run: |
+          curl -fsSL https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz | tar -xz -C /tmp kubeconform
+          for v in lab production; do
+            for k in 1.29.0 1.31.0; do /tmp/kubeconform -strict -summary -kubernetes-version $k /tmp/$v.yaml; done
+          done
+      - name: the bundled renderer agrees with helm (same object kinds and names)
+        run: |
+          for v in lab production; do
+            uv run --no-project --with pyyaml --with jsonschema python deploy/scripts/render_chart.py deploy/helm/olcf -f deploy/helm/olcf/ci/$v-values.yaml --quiet --out /tmp/rc-$v
+            uv run --no-project --with pyyaml python - "$v" <<'PY'
+          import sys, glob, yaml
+          v = sys.argv[1]
+          def ids(docs):
+              return sorted((d["kind"], d["metadata"]["name"]) for d in docs if d)
+          helm = ids(yaml.safe_load_all(open(f"/tmp/{v}.yaml")))
+          mine = ids(d for f in glob.glob(f"/tmp/rc-{v}/*.yaml") for d in yaml.safe_load_all(open(f)))
+          # helm template omits hook-only test pods unless asked; compare the intersection of kinds helm emits
+          missing = [i for i in helm if i not in mine]
+          assert not missing, f"helm renders objects the bundled renderer does not: {missing}"
+          print(v, "ok:", len(helm), "objects")
+          PY
+          done
+      - name: security lint of the rendered lab manifests (kube-linter)
+        uses: stackrox/kube-linter-action@v1
+        with:
+          directory: rendered
+          config: .github/kube-linter.yaml

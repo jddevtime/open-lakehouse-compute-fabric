@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Justin Dodrill
+# systemd-tmpfiles(8): data and configuration directories with the right owner and mode
+d /var/lib/olcf          0700 olcf olcf -
+d /var/lib/olcf-worker   0700 olcf olcf -
+d /etc/olcf              0750 root olcf -

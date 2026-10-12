@@ -1,0 +1,136 @@
+{
+  "name": "Inventory",
+  "compatibilityLevel": 1550,
+  "model": {
+    "culture": "en-US",
+    "expressions": [
+      {
+        "name": "Srv",
+        "kind": "m",
+        "expression": "\"wh.example.com\" meta [IsParameterQuery=true]"
+      },
+      {
+        "name": "DatabaseQuery",
+        "kind": "m",
+        "expression": [
+          "let",
+          "  database = Sql.Database(\"x.datawarehouse.fabric.microsoft.com\", \"gold\")",
+          "in",
+          "  database"
+        ]
+      }
+    ],
+    "tables": [
+      {
+        "name": "Stock",
+        "columns": [
+          {
+            "name": "Sku",
+            "dataType": "string",
+            "sourceColumn": "sku"
+          },
+          {
+            "name": "OnHand",
+            "dataType": "int64",
+            "sourceColumn": "on_hand"
+          },
+          {
+            "name": "Value",
+            "dataType": "decimal",
+            "type": "calculated",
+            "expression": [
+              "Stock[OnHand] * RELATED(Item[Cost])"
+            ]
+          },
+          {
+            "name": "RowNumber-2662979B-1795-4F74-8F37-6A1BA8059B61",
+            "type": "rowNumber",
+            "dataType": "int64",
+            "isHidden": true
+          }
+        ],
+        "measures": [
+          {
+            "name": "Units",
+            "expression": "SUM(Stock[OnHand])"
+          },
+          {
+            "name": "Stock Value",
+            "expression": [
+              "SUMX(Stock,",
+              "  Stock[Value])"
+            ]
+          },
+          {
+            "name": "Share",
+            "expression": "DIVIDE([Units], CALCULATE([Units], ALL(Stock)))"
+          }
+        ],
+        "partitions": [
+          {
+            "name": "Stock",
+            "mode": "import",
+            "source": {
+              "type": "m",
+              "expression": [
+                "let",
+                "    Source = Sql.Database(Srv, \"wh\"),",
+                "    t = Source{[Schema=\"inv\",Item=\"stock\"]}[Data]",
+                "in",
+                "    t"
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "name": "Item",
+        "columns": [
+          {
+            "name": "Cost",
+            "dataType": "decimal",
+            "sourceColumn": "cost"
+          },
+          {
+            "name": "Sku",
+            "dataType": "string",
+            "sourceColumn": "sku"
+          }
+        ],
+        "partitions": [
+          {
+            "name": "Item",
+            "mode": "directLake",
+            "source": {
+              "type": "entity",
+              "entityName": "items",
+              "schemaName": "dbo",
+              "expressionSource": "DatabaseQuery"
+            }
+          }
+        ]
+      },
+      {
+        "name": "Snapshot",
+        "partitions": [
+          {
+            "name": "Snapshot",
+            "source": {
+              "type": "calculated",
+              "expression": "SUMMARIZE(Stock, Stock[Sku], \"u\", [Units])"
+            }
+          }
+        ]
+      }
+    ],
+    "relationships": [
+      {
+        "name": "r1",
+        "fromTable": "Stock",
+        "fromColumn": "Sku",
+        "toTable": "Item",
+        "toColumn": "Sku"
+      }
+    ]
+  }
+}

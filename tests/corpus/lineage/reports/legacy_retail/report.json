@@ -1,0 +1,22 @@
+{
+  "id": 1,
+  "config": "{\"version\":\"5.53\"}",
+  "filters": "[{\"name\": \"lf1\", \"expression\": {\"Column\": {\"Expression\": {\"SourceRef\": {\"Entity\": \"Date Table\"}}, \"Property\": \"Year\"}}, \"type\": \"Categorical\"}]",
+  "sections": [
+    {
+      "name": "ReportSection1",
+      "displayName": "Page 1",
+      "filters": "[]",
+      "visualContainers": [
+        {
+          "x": 0,
+          "y": 0,
+          "config": "{\"name\": \"v1\", \"singleVisual\": {\"visualType\": \"columnChart\", \"projections\": {\"Category\": [{\"queryRef\": \"Product.Category\"}], \"Y\": [{\"queryRef\": \"Sum(Sales.Revenue)\"}]}, \"prototypeQuery\": {\"Version\": 2, \"From\": [{\"Name\": \"p\", \"Entity\": \"Product\", \"Type\": 0}, {\"Name\": \"s\", \"Entity\": \"Sales\", \"Type\": 0}], \"Select\": [{\"Column\": {\"Expression\": {\"SourceRef\": {\"Source\": \"p\"}}, \"Property\": \"Category\"}, \"Name\": \"Product.Category\"}, {\"Aggregation\": {\"Expression\": {\"Column\": {\"Expression\": {\"SourceRef\": {\"Source\": \"s\"}}, \"Property\": \"Revenue\"}}, \"Function\": 0}, \"Name\": \"Sum(Sales.Revenue)\"}], \"OrderBy\": [{\"Direction\": 2, \"Expression\": {\"Measure\": {\"Expression\": {\"SourceRef\": {\"Source\": \"s\"}}, \"Property\": \"Total Revenue\"}}}]}}}",
+          "filters": "[]",
+          "query": "{}",
+          "dataTransforms": "{}"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-16"?>
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<!-- Copyright (c) 2026 Justin Dodrill -->
+<!--
+  Task Scheduler definition (per user, least privilege, no administrator rights) that starts the OLCF control plane at logon.
+  Replace __USER__ (DOMAIN and name), __PREFIX__ and __DATA_DIR__, save the file as UTF-16 and register it with schtasks /Create /XML.
+  The command olcf service install does this for you; deploy/windows/install-service.ps1 does it with checks.
+-->
+<Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+  <RegistrationInfo><Description>Open Lakehouse Compute Fabric server</Description><Author>OLCF</Author></RegistrationInfo>
+  <Triggers><LogonTrigger><Enabled>true</Enabled><UserId>__USER__</UserId></LogonTrigger></Triggers>
+  <Principals><Principal id="Author"><UserId>__USER__</UserId><LogonType>InteractiveToken</LogonType><RunLevel>LeastPrivilege</RunLevel></Principal></Principals>
+  <Settings>
+    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
+    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
+    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
+    <AllowHardTerminate>true</AllowHardTerminate>
+    <StartWhenAvailable>true</StartWhenAvailable>
+    <RunOnlyIfNetworkAvailable>false</RunOnlyIfNetworkAvailable>
+    <AllowStartOnDemand>true</AllowStartOnDemand>
+    <Enabled>true</Enabled>
+    <Hidden>true</Hidden>
+    <ExecutionTimeLimit>PT0S</ExecutionTimeLimit>
+    <RestartOnFailure><Interval>PT1M</Interval><Count>10</Count></RestartOnFailure>
+  </Settings>
+  <Actions Context="Author">
+    <Exec>
+      <Command>__PREFIX__\current\Scripts\olcf.exe</Command>
+      <Arguments>--data-dir "__DATA_DIR__" serve --port 8470</Arguments>
+      <WorkingDirectory>__DATA_DIR__</WorkingDirectory>
+    </Exec>
+  </Actions>
+</Task>

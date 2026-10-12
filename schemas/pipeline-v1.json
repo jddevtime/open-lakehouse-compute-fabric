@@ -1,0 +1,1779 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://olcf.dev/schemas/pipeline-v1.json",
+  "title": "Open Lakehouse Compute Fabric pipeline definition (olcf.pipeline/1)",
+  "description": "Author: Justin Dodrill. Container activities (if, switch, for_each, until) nest activity lists inside typeProperties; those nested definitions are validated recursively with the same rules (plus the semantic checks documented in olcf.pipelines.model).",
+  "type": "object",
+  "required": [
+    "activities"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema": {
+      "const": "olcf.pipeline/1"
+    },
+    "$schema": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 4096
+    },
+    "parameters": {
+      "type": "object",
+      "propertyNames": {
+        "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,63}$"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/parameter"
+      }
+    },
+    "variables": {
+      "type": "object",
+      "propertyNames": {
+        "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,63}$"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/variable"
+      }
+    },
+    "settings": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "concurrency": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000,
+          "description": "Maximum simultaneous runs of this pipeline (0 = unlimited)."
+        },
+        "queuePolicy": {
+          "enum": [
+            "queue",
+            "skip",
+            "cancel_previous"
+          ],
+          "description": "What to do with a run that exceeds `concurrency`."
+        },
+        "timeoutSeconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 7776000
+        },
+        "failFast": {
+          "type": "boolean",
+          "description": "Cancel the rest of the run as soon as an activity fails without a failure handler."
+        },
+        "maxParallelActivities": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 64
+        }
+      }
+    },
+    "outputs": {
+      "type": "object",
+      "description": "Named run outputs; values may be expressions evaluated when the run ends."
+    },
+    "annotations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "activities": {
+      "type": "array",
+      "maxItems": 500,
+      "items": {
+        "$ref": "#/$defs/activity"
+      }
+    }
+  },
+  "$defs": {
+    "expression": {
+      "type": "string",
+      "pattern": "^@(?!@)|@\\{",
+      "description": "An expression: '@func(...)' or text with '@{...}' interpolations."
+    },
+    "dependency": {
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "object",
+          "required": [
+            "activity"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "activity": {
+              "type": "string"
+            },
+            "conditions": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "succeeded",
+                  "failed",
+                  "skipped",
+                  "completed"
+                ]
+              },
+              "minItems": 1,
+              "uniqueItems": true
+            }
+          }
+        }
+      ]
+    },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "retries": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10
+        },
+        "retryBackoffSeconds": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 86400
+        },
+        "backoffMultiplier": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 10
+        },
+        "maxBackoffSeconds": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 86400
+        },
+        "timeoutSeconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2592000
+        },
+        "cancelGraceSeconds": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 3600,
+          "description": "After a timeout the attempt is cancelled and the engine waits this long (default 30) for it to stop before it concludes the attempt; an attempt that has not stopped by then ends as timeout_uncertain and is retried only when idempotent."
+        },
+        "idempotent": {
+          "type": "boolean",
+          "description": "Safe to execute again: after a control-plane crash, and after a timeout whose outcome is unknown (the attempt may have completed its work)."
+        },
+        "reusable": {
+          "type": "boolean",
+          "description": "A successful result may be reused when re-running from failure."
+        },
+        "secureInput": {
+          "type": "boolean"
+        },
+        "secureOutput": {
+          "type": "boolean"
+        }
+      }
+    },
+    "parameter": {
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "enum": [
+            "string",
+            "int",
+            "float",
+            "bool",
+            "array",
+            "object",
+            "secret_ref"
+          ]
+        },
+        "default": {},
+        "description": {
+          "type": "string"
+        }
+      }
+    },
+    "variable": {
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "enum": [
+            "string",
+            "int",
+            "float",
+            "bool",
+            "array",
+            "object"
+          ]
+        },
+        "default": {},
+        "description": {
+          "type": "string"
+        }
+      }
+    },
+    "activity_envelope": {
+      "type": "object",
+      "required": [
+        "name",
+        "type"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_][A-Za-z0-9_ .\\-]{0,127}$",
+          "description": "Unique within its scope; letters, digits, space, '_', '.', '-'."
+        },
+        "type": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 1024
+        },
+        "dependsOn": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/dependency"
+          }
+        },
+        "policy": {
+          "$ref": "#/$defs/policy"
+        },
+        "typeProperties": {
+          "type": "object"
+        },
+        "userProperties": {
+          "type": "object"
+        }
+      }
+    },
+    "activity_types": {
+      "enum": [
+        "child_pipeline",
+        "copy",
+        "fail",
+        "for_each",
+        "http",
+        "if",
+        "notebook",
+        "script",
+        "set_variable",
+        "spark_job",
+        "sql",
+        "switch",
+        "until",
+        "wait",
+        "webhook_wait"
+      ]
+    },
+    "activity": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/activity_envelope"
+        },
+        {
+          "properties": {
+            "type": {
+              "$ref": "#/$defs/activity_types"
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "child_pipeline"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "typeProperties": {
+                "type": "object",
+                "properties": {
+                  "pipeline": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      {
+                        "$ref": "#/$defs/expression"
+                      }
+                    ]
+                  },
+                  "parameters": {
+                    "anyOf": [
+                      {
+                        "type": "object"
+                      },
+                      {
+                        "$ref": "#/$defs/expression"
+                      }
+                    ]
+                  },
+                  "waitOnCompletion": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "$ref": "#/$defs/expression"
+                      }
+                    ]
+                  }
+                },
+                "additionalProperties": false,
+                "required": [
+                  "pipeline"
+                ]
+              }
+            },
+            "required": [
+              "typeProperties"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "copy"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "typeProperties": {
+                "type": "object",
+                "properties": {
+                  "source": {
+                    "type": "object",
+                    "properties": {
+                      "lakehouse": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          {
+                            "$ref": "#/$defs/expression"
+                          }
+                        ]
+                      },
+                      "path": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "$ref": "#/$defs/expression"
+                          }
+                        ]
+                      },
+                      "table": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "$ref": "#/$defs/expression"
+                          }
+                        ]
+                      },
+                      "pattern": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "$ref": "#/$defs/expression"
+                          }
+                        ]
+                      },
+                      "recursive": {
+                        "anyOf": [
+                          {
+                            "type": "boolean"
+                          },
+                          {
+                            "$ref": "#/$defs/expression"
+                          }
+                        ]
+                      },
+                      "format": {
+                        "enum": [
+                          "binary",
+                          "csv",
+                          "jsonl",
+                          "parquet",
+                          "delta"
+                        ]
+                      },
+                      "options": {
+                        "anyOf": [
+                          {
+                            "type": "object"
+                          },
+                          {
+                            "$ref": "#/$defs/expression"
+                          }
+                        ]
+                      }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                      "lakehouse"
+                    ]
+                  },
+                  "sink": {
+                    "type": "object",
+                    "properties": {
+                      "lakehouse": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          {
+                            "$ref": "#/$defs/expression"
+                          }
+                        ]
+                      },
+                      "path": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "$ref": "#/$defs/expression"
+                          }
+                        ]
+                      },
+                      "table": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "$ref": "#/$defs/expression"
+                          }
+                        ]
+                      },
+                      "format": {
+                        "enum": [
+                          "binary",
+                          "csv",
+                          "jsonl",
+                          "parquet",
+                          "delta"
+                        ]
+                      },
+                      "mode": {
+                        "enum": [
+                          "overwrite",
+                          "skip_existing",
+                          "fail_if_exists",
+                          "append",
+                          "error"
+                        ]
+                      },
+                      "flatten": {
+                        "anyOf": [
+                          {
+                            "type": "boolean"
+                          },
+                          {
+                            "$ref": "#/$defs/expression"
+                          }
+                        ]
+                      },
+                      "options": {
+                        "anyOf": [
+                          {
+                            "type": "object"
+                          },
+                          {
+                            "$ref": "#/$defs/expression"
+                          }
+                        ]
+                      }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                      "lakehouse"
+                    ]
+                  },
+                  "options": {
+                    "type": "object",
+                    "properties": {
+                      "parallelism": {
+                        "anyOf": [
+                          {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 16
+                          },
+                          {
+                            "$ref": "#/$defs/expression"
+                          }
+                        ]
+                      },
+                      "verify": {
+                        "enum": [
+                          "none",
+                          "size",
+                          "checksum"
+                        ]
+                      },
+                      "maxFiles": {
+                        "anyOf": [
+                          {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 1000000
+                          },
+                          {
+                            "$ref": "#/$defs/expression"
+                          }
+                        ]
+                      },
+                      "maxBytes": {
+                        "anyOf": [
+                          {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          {
+                            "$ref": "#/$defs/expression"
+                          }
+                        ]
+                      },
+                      "failOnEmpty": {
+                        "anyOf": [
+                          {
+                            "type": "boolean"
+                          },
+                          {
+                            "$ref": "#/$defs/expression"
+                          }
+                        ]
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "additionalProperties": false,
+                "required": [
+                  "source",
+                  "sink"
+                ]
+              }
+            },
+            "required": [
+              "typeProperties"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "fail"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "typeProperties": {
+                "type": "object",
+                "properties": {
+                  "message": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "$ref": "#/$defs/expression"
+                      }
+                    ]
+                  },
+                  "errorCode": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "$ref": "#/$defs/expression"
+                      }
+                    ]
+                  }
+                },
+                "additionalProperties": false,
+                "required": [
+                  "message"
+                ]
+              }
+            },
+            "required": [
+              "typeProperties"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "for_each"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "typeProperties": {
+                "type": "object",
+                "properties": {
+                  "items": {
+                    "anyOf": [
+                      {
+                        "type": "array"
+                      },
+                      {
+                        "$ref": "#/$defs/expression"
+                      }
+                    ]
+                  },
+                  "isSequential": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "$ref": "#/$defs/expression"
+                      }
+                    ]
+                  },
+                  "batchCount": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 50
+                      },
+                      {
+                        "$ref": "#/$defs/expression"
+                      }
+                    ]
+                  },
+                  "activities": {
+                    "type": "array"
+                  },
+                  "collect": {
+                    "type": "string"
+                  },
+                  "continueOnFailure": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "$ref": "#/$defs/expression"
+                      }
+                    ]
+                  }
+                },
+                "additionalProperties": false,
+                "required": [
+                  "items",
+                  "activities"
+                ]
+              }
+            },
+            "required": [
+              "typeProperties"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "http"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "typeProperties": {
+                "type": "object",
+                "properties": {
+                  "url": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      {
+                        "$ref": "#/$defs/expression"
+                      }
+                    ]
+                  },
+                  "method": {
+                    "enum": [
+                      "GET",
+                      "POST",
+                      "PUT",
+                      "PATCH",
+                      "DELETE",
+                      "HEAD",
+                      "OPTIONS"
+                    ]
+                  },
+                  "headers": {
+                    "anyOf": [
+                      {
+                        "type": "object"
+                      },
+                      {
+                        "$ref": "#/$defs/expression"
+                      }
+                    ]
+                  },
+                  "queryParams": {
+                    "anyOf": [
+                      {
+                        "type": "object"
+                      },
+                      {
+                        "$ref": "#/$defs/expression"
+                      }
+                    ]
+                  },
+                  "body": {},
+                  "contentType": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "$ref": "#/$defs/expression"
+                      }
+                    ]
+                  },
+                  "auth": {
+                    "anyOf": [
+                      {
+                        "type": "object"
+                      },
+                      {
+                        "$ref": "#/$defs/expression"
+                      }
+                    ]
+                  },
+                  "expectStatus": {
+                    "anyOf": [
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "integer",
+                          "minimum": 100,
+                          "maximum": 599
+                        }
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "timeoutSeconds": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 600
+                      },
+                      {
+                        "$ref": "#/$defs/expression"
+                      }
+                    ]
+                  },
+                  "followRedirects": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "$ref": "#/$defs/expression"
+                      }
+                    ]
+                  },
+                  "maxResponseBytes": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 16777216
+                      },
+                      {
+                        "$ref": "#/$defs/expression"
+                      }
+                    ]
+                  },
+                  "verifyTls": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "$ref": "#/$defs/expression"
+                      }
+                    ]
+                  },
+                  "idempotencyKey": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 255
+                      },
+                      {
+                        "$ref": "#/$defs/expression"
+                      }
+                    ],
+                    "description": "Send an Idempotency-Key header so the request may be repeated safely: true generates a key that stays the same for every attempt of this activity run, a string uses that value."
+                  }
+                },
+                "additionalProperties": false,
+                "required": [
+                  "url"
+                ]
+              }
+            },
+            "required": [
+              "typeProperties"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "if"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "typeProperties": {
+                "type": "object",
+                "properties": {
+                  "expression": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "$ref": "#/$defs/expression"
+                      }
+                    ]
+                  },
+                  "ifTrueActivities": {
+                    "type": "array"
+                  },
+                  "ifFalseActivities": {
+                    "type": "array"
+                  }
+                },
+                "additionalProperties": false,
+                "required": [
+                  "expression"
+                ]
+              }
+            },
+            "required": [
+              "typeProperties"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "notebook"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "typeProperties": {
+                "type": "object",
+                "properties": {
+                  "notebook": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      {
+                        "$ref": "#/$defs/expression"
+                      }
+                    ]
+                  },
+                  "parameters": {
+                    "anyOf": [
+                      {
+                        "type": "object"
+                      },
+                      {
+                        "$ref": "#/$defs/expression"
+                      }
+                    ]
+                  },
+                  "engine": {
+                    "enum": [
+                      "python",
+                      "spark"
+                    ]
+                  },
+                  "lakehouse": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "$ref": "#/$defs/expression"
+                      }
+                    ]
+                  },
+                  "environment": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "$ref": "#/$defs/expression"
+                      }
+                    ]
+                  },
+                  "runtime": {
+                    "anyOf": [
+                      {
+                        "type": "object"
+                      },
+                      {
+                        "$ref": "#/$defs/expression"
+                      }
+                    ]
+                  },
+                  "resources": {
+                    "anyOf": [
+                      {
+                        "type": "object"
+                      },
+                      {
+                        "$ref": "#/$defs/expression"
+                      }
+                    ]
+                  },
+                  "queue": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "$ref": "#/$defs/expression"
+                      }
+                    ]
+                  },
+                  "priority": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 100
+                      },
+                      {
+                        "$ref": "#/$defs/expression"
+                      }
+                    ]
+                  },
+                  "timeoutSeconds": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 2592000
+                      },
+                      {
+                        "$ref": "#/$defs/expression"
+                      }
+                    ]
+                  },
+                  "env": {
+                    "anyOf": [
+                      {
+                        "type": "object"
+                      },
+                      {
+                        "$ref": "#/$defs/expression"
+                      }
+                    ]
+                  },
+                  "secrets": {
+                    "anyOf": [
+                      {
+                        "type": "object"
+                      },
+                      {
+                        "$ref": "#/$defs/expression"
+                      }
+                    ]
+                  },
+                  "tags": {
+                    "anyOf": [
+                      {
+                        "type": "object"
+                      },
+                      {
+                        "$ref": "#/$defs/expression"
+                      }
+                    ]
+                  },
+                  "placement": {
+                    "anyOf": [
+                      {
+                        "type": "object"
+                      },
+                      {
+                        "$ref": "#/$defs/expression"
+                      }
+                    ]
+                  }
+                },
+                "additionalProperties": false,
+                "required": [
+                  "notebook"
+                ]
+              }
+            },
+            "required": [
+              "typeProperties"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "script"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "typeProperties": {
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "language": {
+                    "enum": [
+                      "python",
+                      "shell"
+                    ]
+                  },
+                  "parameters": {
+                    "anyOf": [
+                      {
+                        "type": "object"
+                      },
+                      {
+                        "$ref": "#/$defs/expression"
+                      }
+                    ]
+                  },
+                  "engine": {
+                    "enum": [
+                      "python",
+                      "spark"
+                    ]
+                  },
+                  "lakehouse": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "$ref": "#/$defs/expression"
+                      }
+                    ]
+                  },
+                  "environment": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "$ref": "#/$defs/expression"
+                      }
+                    ]
+                  },
+                  "runtime": {
+                    "anyOf": [
+                      {
+                        "type": "object"
+                      },
+                      {
+                        "$ref": "#/$defs/expression"
+                      }
+                    ]
+                  },
+                  "resources": {
+                    "anyOf": [
+                      {
+                        "type": "object"
+                      },
+                      {
+                        "$ref": "#/$defs/expression"
+                      }
+                    ]
+                  },
+                  "queue": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "$ref": "#/$defs/expression"
+                      }
+                    ]
+                  },
+                  "priority": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 100
+                      },
+                      {
+                        "$ref": "#/$defs/expression"
+                      }
+                    ]
+                  },
+                  "timeoutSeconds": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 2592000
+                      },
+                      {
+                        "$ref": "#/$defs/expression"
+                      }
+                    ]
+                  },
+                  "env": {
+                    "anyOf": [
+                      {
+                        "type": "object"
+                      },
+                      {
+                        "$ref": "#/$defs/expression"
+                      }
+                    ]
+                  },
+                  "secrets": {
+                    "anyOf": [
+                      {
+                        "type": "object"
+                      },
+                      {
+                        "$ref": "#/$defs/expression"
+                      }
+                    ]
+                  },
+                  "tags": {
+                    "anyOf": [
+                      {
+                        "type": "object"
+                      },
+                      {
+                        "$ref": "#/$defs/expression"
+                      }
+                    ]
+                  },
+                  "placement": {
+                    "anyOf": [
+                      {
+                        "type": "object"
+                      },
+                      {
+                        "$ref": "#/$defs/expression"
+                      }
+                    ]
+                  }
+                },
+                "additionalProperties": false,
+                "required": [
+                  "code"
+                ]
+              }
+            },
+            "required": [
+              "typeProperties"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "set_variable"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "typeProperties": {
+                "type": "object",
+                "properties": {
+                  "variable": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "value": {},
+                  "mode": {
+                    "enum": [
+                      "set",
+                      "append"
+                    ]
+                  }
+                },
+                "additionalProperties": false,
+                "required": [
+                  "variable",
+                  "value"
+                ]
+              }
+            },
+            "required": [
+              "typeProperties"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "spark_job"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "typeProperties": {
+                "type": "object",
+                "properties": {
+                  "sparkJob": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      {
+                        "$ref": "#/$defs/expression"
+                      }
+                    ]
+                  },
+                  "parameters": {
+                    "anyOf": [
+                      {
+                        "type": "object"
+                      },
+                      {
+                        "$ref": "#/$defs/expression"
+                      }
+                    ]
+                  },
+                  "engine": {
+                    "enum": [
+                      "python",
+                      "spark"
+                    ]
+                  },
+                  "lakehouse": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "$ref": "#/$defs/expression"
+                      }
+                    ]
+                  },
+                  "environment": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "$ref": "#/$defs/expression"
+                      }
+                    ]
+                  },
+                  "runtime": {
+                    "anyOf": [
+                      {
+                        "type": "object"
+                      },
+                      {
+                        "$ref": "#/$defs/expression"
+                      }
+                    ]
+                  },
+                  "resources": {
+                    "anyOf": [
+                      {
+                        "type": "object"
+                      },
+                      {
+                        "$ref": "#/$defs/expression"
+                      }
+                    ]
+                  },
+                  "queue": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "$ref": "#/$defs/expression"
+                      }
+                    ]
+                  },
+                  "priority": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 100
+                      },
+                      {
+                        "$ref": "#/$defs/expression"
+                      }
+                    ]
+                  },
+                  "timeoutSeconds": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 2592000
+                      },
+                      {
+                        "$ref": "#/$defs/expression"
+                      }
+                    ]
+                  },
+                  "env": {
+                    "anyOf": [
+                      {
+                        "type": "object"
+                      },
+                      {
+                        "$ref": "#/$defs/expression"
+                      }
+                    ]
+                  },
+                  "secrets": {
+                    "anyOf": [
+                      {
+                        "type": "object"
+                      },
+                      {
+                        "$ref": "#/$defs/expression"
+                      }
+                    ]
+                  },
+                  "tags": {
+                    "anyOf": [
+                      {
+                        "type": "object"
+                      },
+                      {
+                        "$ref": "#/$defs/expression"
+                      }
+                    ]
+                  },
+                  "placement": {
+                    "anyOf": [
+                      {
+                        "type": "object"
+                      },
+                      {
+                        "$ref": "#/$defs/expression"
+                      }
+                    ]
+                  }
+                },
+                "additionalProperties": false,
+                "required": [
+                  "sparkJob"
+                ]
+              }
+            },
+            "required": [
+              "typeProperties"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "sql"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "typeProperties": {
+                "type": "object",
+                "properties": {
+                  "sql": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      {
+                        "$ref": "#/$defs/expression"
+                      }
+                    ]
+                  },
+                  "engine": {
+                    "enum": [
+                      "duckdb",
+                      "spark"
+                    ]
+                  },
+                  "lakehouse": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "$ref": "#/$defs/expression"
+                      }
+                    ]
+                  },
+                  "parameters": {
+                    "anyOf": [
+                      {
+                        "type": "object"
+                      },
+                      {
+                        "$ref": "#/$defs/expression"
+                      }
+                    ]
+                  },
+                  "maxRows": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 100000
+                      },
+                      {
+                        "$ref": "#/$defs/expression"
+                      }
+                    ]
+                  },
+                  "timeoutSeconds": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 86400
+                      },
+                      {
+                        "$ref": "#/$defs/expression"
+                      }
+                    ]
+                  }
+                },
+                "additionalProperties": false,
+                "required": [
+                  "sql"
+                ]
+              }
+            },
+            "required": [
+              "typeProperties"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "switch"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "typeProperties": {
+                "type": "object",
+                "properties": {
+                  "on": {},
+                  "cases": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "value": {},
+                        "activities": {
+                          "type": "array"
+                        }
+                      },
+                      "additionalProperties": false,
+                      "required": [
+                        "value"
+                      ]
+                    }
+                  },
+                  "defaultActivities": {
+                    "type": "array"
+                  }
+                },
+                "additionalProperties": false,
+                "required": [
+                  "on"
+                ]
+              }
+            },
+            "required": [
+              "typeProperties"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "until"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "typeProperties": {
+                "type": "object",
+                "properties": {
+                  "expression": {},
+                  "activities": {
+                    "type": "array"
+                  },
+                  "maxIterations": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 100000
+                      },
+                      {
+                        "$ref": "#/$defs/expression"
+                      }
+                    ]
+                  }
+                },
+                "additionalProperties": false,
+                "required": [
+                  "expression",
+                  "activities"
+                ]
+              }
+            },
+            "required": [
+              "typeProperties"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "wait"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "typeProperties": {
+                "type": "object",
+                "properties": {
+                  "waitTimeInSeconds": {
+                    "anyOf": [
+                      {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      {
+                        "$ref": "#/$defs/expression"
+                      }
+                    ]
+                  }
+                },
+                "additionalProperties": false,
+                "required": [
+                  "waitTimeInSeconds"
+                ]
+              }
+            },
+            "required": [
+              "typeProperties"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "webhook_wait"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "typeProperties": {
+                "type": "object",
+                "properties": {
+                  "url": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "$ref": "#/$defs/expression"
+                      }
+                    ]
+                  },
+                  "method": {
+                    "enum": [
+                      "POST",
+                      "PUT",
+                      "PATCH",
+                      "GET"
+                    ]
+                  },
+                  "headers": {
+                    "anyOf": [
+                      {
+                        "type": "object"
+                      },
+                      {
+                        "$ref": "#/$defs/expression"
+                      }
+                    ]
+                  },
+                  "body": {},
+                  "timeoutSeconds": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 2592000
+                      },
+                      {
+                        "$ref": "#/$defs/expression"
+                      }
+                    ]
+                  },
+                  "requestTimeoutSeconds": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 120
+                      },
+                      {
+                        "$ref": "#/$defs/expression"
+                      }
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,16 @@
+{{/* SPDX-License-Identifier: Apache-2.0 */}}
+{{/* Copyright (c) 2026 Justin Dodrill */}}
+{{- if and .Values.controlPlane.podDisruptionBudget.enabled (gt (int .Values.controlPlane.replicaCount) 1) }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "olcf.fullname" . }}
+  labels:
+    {{- include "olcf.labels" . | nindent 4 }}
+spec:
+  minAvailable: {{ .Values.controlPlane.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "olcf.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: control-plane
+{{- end }}

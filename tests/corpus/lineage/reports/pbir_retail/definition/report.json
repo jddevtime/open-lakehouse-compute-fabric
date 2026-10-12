@@ -1,0 +1,25 @@
+{
+  "themeCollection": {
+    "baseTheme": {
+      "name": "CY24SU10"
+    }
+  },
+  "filterConfig": {
+    "filters": [
+      {
+        "name": "rf1",
+        "field": {
+          "Column": {
+            "Expression": {
+              "SourceRef": {
+                "Entity": "Date Table"
+              }
+            },
+            "Property": "Year"
+          }
+        },
+        "type": "Categorical"
+      }
+    ]
+  }
+}

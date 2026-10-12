@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<!-- Copyright (c) 2026 Justin Dodrill -->
+<!--
+  OLCF control plane as a per-user LaunchAgent (macOS).  This is a template for fleet tooling: launchd expands neither the tilde nor HOME, so
+  replace __PREFIX__ (the installer prefix), __DATA_DIR__ and __HOME__ with absolute paths, copy the result to ~/Library/LaunchAgents and load it
+  with launchctl bootstrap.  The exact commands are in deploy/README.md.  The command olcf service install does all of this with the right paths;
+  use this file only when you deploy without the CLI.  It runs the installer's own Python and never /usr/bin/python3 or /usr/bin/java.
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>org.olcf.server</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>__PREFIX__/current/bin/olcf</string>
+		<string>--data-dir</string>
+		<string>__DATA_DIR__</string>
+		<string>serve</string>
+		<string>--port</string>
+		<string>8470</string>
+	</array>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>OLCF_DATA_DIR</key>
+		<string>__DATA_DIR__</string>
+		<key>HOME</key>
+		<string>__HOME__</string>
+		<key>PATH</key>
+		<string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+		<key>PYTHONUNBUFFERED</key>
+		<string>1</string>
+	</dict>
+	<key>WorkingDirectory</key>
+	<string>__DATA_DIR__</string>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>KeepAlive</key>
+	<dict>
+		<key>SuccessfulExit</key>
+		<false/>
+	</dict>
+	<key>ThrottleInterval</key>
+	<integer>10</integer>
+	<key>ExitTimeOut</key>
+	<integer>30</integer>
+	<key>ProcessType</key>
+	<string>Background</string>
+	<key>Umask</key>
+	<integer>63</integer>
+	<key>StandardOutPath</key>
+	<string>__DATA_DIR__/logs/launchd.out.log</string>
+	<key>StandardErrorPath</key>
+	<string>__DATA_DIR__/logs/launchd.err.log</string>
+</dict>
+</plist>

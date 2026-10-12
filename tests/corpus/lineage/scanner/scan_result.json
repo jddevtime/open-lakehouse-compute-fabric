@@ -1,0 +1,192 @@
+{
+ "workspaces": [
+  {
+   "id": "11111111-1111-4111-8111-111111111111",
+   "name": "Retail Workspace",
+   "type": "Workspace",
+   "state": "Active",
+   "datasets": [
+    {
+     "id": "22222222-2222-4222-8222-222222222222",
+     "name": "Retail",
+     "configuredBy": "a@example.com",
+     "targetStorageMode": "Import",
+     "contentProviderType": "PowerBIReport",
+     "tables": [
+      {
+       "name": "Sales",
+       "columns": [
+        {
+         "name": "OrderId",
+         "dataType": "Int64",
+         "columnType": "Data"
+        },
+        {
+         "name": "Amount",
+         "dataType": "Decimal",
+         "columnType": "Data"
+        },
+        {
+         "name": "Band",
+         "dataType": "String",
+         "columnType": "Calculated",
+         "expression": "IF(Sales[Amount] > 100, \"High\", \"Low\")"
+        },
+        {
+         "name": "RowNumber-1",
+         "dataType": "Int64",
+         "columnType": "RowNumber"
+        }
+       ],
+       "measures": [
+        {
+         "name": "Total",
+         "expression": "SUM(Sales[Amount])"
+        },
+        {
+         "name": "Avg",
+         "expression": "DIVIDE([Total], COUNTROWS(Sales))"
+        }
+       ],
+       "source": [
+        {
+         "expression": "let\n    Source = Sql.Database(\"srv.example.com\", \"erp\"),\n    t = Source{[Schema=\"dbo\",Item=\"sales\"]}[Data]\nin\n    t"
+        }
+       ]
+      },
+      {
+       "name": "Calendar",
+       "columns": [
+        {
+         "name": "Date",
+         "dataType": "DateTime",
+         "columnType": "CalculatedTableColumn"
+        }
+       ],
+       "source": [
+        {
+         "expression": "CALENDARAUTO()"
+        }
+       ]
+      }
+     ],
+     "expressions": [],
+     "upstreamDatasets": [],
+     "upstreamDataflows": [
+      {
+       "targetDataflowId": "88888888-8888-4888-8888-888888888888",
+       "groupId": "11111111-1111-4111-8111-111111111111"
+      }
+     ],
+     "datasourceUsages": [
+      {
+       "datasourceInstanceId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+      }
+     ]
+    },
+    {
+     "id": "33333333-3333-4333-8333-333333333333",
+     "name": "Marketing",
+     "datasourceUsages": [
+      {
+       "datasourceInstanceId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+      },
+      {
+       "datasourceInstanceId": "unknown-instance"
+      }
+     ],
+     "upstreamDatasets": [
+      {
+       "targetDatasetId": "22222222-2222-4222-8222-222222222222",
+       "groupId": "11111111-1111-4111-8111-111111111111"
+      }
+     ],
+     "upstreamDataflows": []
+    },
+    {
+     "id": "55555555-5555-4555-8555-555555555555",
+     "name": "Bare"
+    }
+   ],
+   "reports": [
+    {
+     "id": "44444444-4444-4444-8444-444444444444",
+     "name": "Sales Overview",
+     "reportType": "PowerBIReport",
+     "datasetId": "22222222-2222-4222-8222-222222222222",
+     "modifiedDateTime": "2026-10-01T00:00:00Z"
+    },
+    {
+     "id": "66666666-6666-4666-8666-666666666666",
+     "name": "Cross Workspace",
+     "reportType": "PowerBIReport",
+     "datasetId": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+     "datasetWorkspaceId": "99999999-9999-4999-8999-999999999999"
+    },
+    {
+     "id": "77777777-7777-4777-8777-777777777777",
+     "name": "Orphan",
+     "reportType": "PowerBIReport",
+     "datasetId": "cccccccc-cccc-4ccc-8ccc-cccccccccccc"
+    },
+    {
+     "id": "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+     "name": "Paginated",
+     "reportType": "PaginatedReport"
+    },
+    {
+     "id": "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+     "name": "Broken",
+     "reportType": "PowerBIReport"
+    }
+   ],
+   "dashboards": [
+    {
+     "id": "f0f0f0f0-f0f0-4f0f-8f0f-f0f0f0f0f0f0",
+     "displayName": "KPIs",
+     "tiles": [
+      {
+       "id": "t1",
+       "title": "Revenue",
+       "reportId": "44444444-4444-4444-8444-444444444444",
+       "datasetId": "22222222-2222-4222-8222-222222222222"
+      },
+      {
+       "id": "t2",
+       "title": "Direct",
+       "datasetId": "33333333-3333-4333-8333-333333333333"
+      },
+      {
+       "id": "t3",
+       "title": "Elsewhere",
+       "reportId": "12121212-1212-4121-8121-121212121212"
+      }
+     ]
+    }
+   ],
+   "dataflows": [
+    {
+     "objectId": "88888888-8888-4888-8888-888888888888",
+     "name": "Prep",
+     "upstreamDataflows": [],
+     "datasourceUsages": [
+      {
+       "datasourceInstanceId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "datasourceInstances": [
+  {
+   "datasourceType": "Sql",
+   "connectionDetails": {
+    "server": "SRV.example.com",
+    "database": "erp"
+   },
+   "datasourceId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+   "gatewayId": "g1"
+  }
+ ]
+}

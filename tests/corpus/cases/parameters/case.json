@@ -1,0 +1,20 @@
+{
+  "data_run": "notebook",
+  "description": "parameter cell with typed defaults overridden by the run, nothing else leaks in",
+  "engine": "python",
+  "extra_lakehouses": [],
+  "name": "parameters",
+  "needs": "",
+  "parameters": {
+    "dry_run": false,
+    "limit": 3,
+    "run_date": "2026-10-07",
+    "tags": [
+      "a",
+      "b"
+    ]
+  },
+  "primary_format": "ipynb",
+  "standalone_engine": "python",
+  "why": ""
+}

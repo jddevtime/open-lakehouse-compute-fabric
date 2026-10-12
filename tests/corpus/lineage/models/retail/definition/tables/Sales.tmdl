@@ -1,0 +1,50 @@
+/// Order lines from the silver lakehouse
+table Sales
+	lineageTag: bbbbbbbb-0000-4000-8000-000000000001
+
+	measure 'Total Revenue' = SUM(Sales[Revenue])
+		formatString: #,0.00
+	measure 'Total Qty' = SUM(Sales[Quantity])
+	measure 'Avg Price' = DIVIDE([Total Revenue], [Total Qty])
+	measure 'Revenue per Customer' =
+			VAR Cust = DISTINCTCOUNT(Sales[CustomerKey])
+			RETURN
+			    DIVIDE([Total Revenue], Cust)
+	measure 'Order Count' = COUNTROWS(Sales)
+	measure 'Margin %' = DIVIDE([Total Revenue] - SUM(Product[UnitCost]) , [Total Revenue])
+
+	column OrderKey
+		dataType: int64
+		sourceColumn: order_id
+
+	column CustomerKey
+		dataType: int64
+		sourceColumn: customer_id
+
+	column ProductKey
+		dataType: int64
+		sourceColumn: product_id
+
+	column Quantity
+		dataType: int64
+		sourceColumn: qty
+
+	column Revenue
+		dataType: decimal
+		sourceColumn: net_amount
+
+	column OrderDate
+		dataType: dateTime
+		sourceColumn: order_date
+
+	column 'Revenue Band' = IF(Sales[Revenue] > 1000, "High", "Low")
+		dataType: string
+
+	partition Sales = m
+		mode: import
+		source =
+				let
+				    Source = SilverLakehouse{[Id="orders",ItemKind="Table"]}[Data],
+				    Kept = Table.SelectColumns(Source, {"order_id","customer_id","product_id","qty","net_amount","order_date"})
+				in
+				    Kept

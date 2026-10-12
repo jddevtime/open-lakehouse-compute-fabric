@@ -1,0 +1,5 @@
+{
+ "ServerName": "\"srv1\"",
+ "DbName": "\"db1\"",
+ "Orders": "let S = Sql.Database(\"srv\",\"erp\"), t = S{[Schema=\"dbo\",Item=\"Orders\"]}[Data] in t"
+}

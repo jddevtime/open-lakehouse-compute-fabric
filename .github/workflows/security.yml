@@ -1,0 +1,89 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Justin Dodrill
+#
+# Dependency and code scanning: pip-audit (PyPI advisories), OSV-Scanner, CodeQL, secret scanning (gitleaks). Runs on every pull request, weekly, and as a
+# release gate (reusable workflow, called by release.yml).
+name: security
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "17 4 * * 1"
+  workflow_dispatch:
+  workflow_call:                # reused by release.yml as a release gate
+
+permissions:
+  contents: read
+
+# github.workflow is the calling workflow's name under workflow_call: a release run has its own group and neither cancels nor is cancelled by the push/PR run.
+concurrency:
+  group: security-gate-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.workflow == 'security' }}
+
+jobs:
+  audit:
+    name: dependency audit (pip-audit + OSV)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with: {enable-cache: true}
+      - name: resolve everything a user can install (all extras) for each supported platform
+        run: |
+          for plat in x86_64-manylinux_2_28 aarch64-apple-darwin x86_64-pc-windows-msvc; do
+            uv pip compile pyproject.toml --extra all --python-version 3.13 --python-platform "$plat" --only-binary :all: --no-header -o "requirements-$plat.txt"
+          done
+      - name: pip-audit
+        # the requirement files are fully resolved and hashed-by-version lists: --no-deps audits exactly those pins, --disable-pip avoids building an environment
+        run: |
+          for plat in x86_64-manylinux_2_28 aarch64-apple-darwin x86_64-pc-windows-msvc; do
+            uvx pip-audit --strict --disable-pip --no-deps -r "requirements-$plat.txt"
+          done
+      - name: OSV-Scanner
+        uses: google/osv-scanner-action/osv-scanner-action@v2.6.0
+        with:
+          scan-args: |-
+            --lockfile=requirements.txt:requirements-x86_64-manylinux_2_28.txt
+            --lockfile=requirements.txt:requirements-aarch64-apple-darwin.txt
+            --lockfile=requirements.txt:requirements-x86_64-pc-windows-msvc.txt
+
+  codeql:
+    name: CodeQL (python)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: github/codeql-action/init@v3
+        with: {languages: python, queries: security-extended}
+      - uses: github/codeql-action/analyze@v3
+
+  secrets:
+    name: secret scan (gitleaks)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      # The CLI (not gitleaks-action, which needs a license key for organization repositories) with the repository configuration: default rules plus a narrow
+      # allowlist (.gitleaks.toml). Synthetic fixtures carry a per-line "gitleaks:allow" comment; tests and source are scanned like everything else.
+      - name: install gitleaks (pinned, checksum verified)
+        env:
+          GITLEAKS_VERSION: "8.24.2"
+          GITLEAKS_SHA256: fa0500f6b7e41d28791ebc680f5dd9899cd42b58629218a5f041efa899151a8e
+        run: |
+          curl -fsSL -o /tmp/gitleaks.tgz "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "${GITLEAKS_SHA256}  /tmp/gitleaks.tgz" | sha256sum -c -
+          tar -xzf /tmp/gitleaks.tgz -C /tmp gitleaks
+      - name: scan the checked-out tree (blocking)
+        run: /tmp/gitleaks dir . --config .gitleaks.toml --redact --no-banner --exit-code 1
+      - name: scan the git history (informational)
+        # Findings in commits made before the fixtures were annotated cannot be fixed without rewriting history. Make this step blocking (remove
+        # continue-on-error) once the published history is clean, or pass --baseline-path with a reviewed baseline.
+        continue-on-error: true
+        run: /tmp/gitleaks git . --config .gitleaks.toml --redact --no-banner --exit-code 1

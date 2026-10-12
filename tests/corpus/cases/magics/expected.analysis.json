@@ -1,0 +1,46 @@
+{
+  "analyzer_version": "1.0.0",
+  "blocked": false,
+  "blockers": [],
+  "child_notebooks": [],
+  "counts": {
+    "compatibility-shim": 2,
+    "deterministic-rewrite": 1,
+    "fabric-only-fallback": 0,
+    "native-portable": 0,
+    "unsupported": 0,
+    "warning": 0
+  },
+  "data_references": {
+    "paths": [],
+    "tables": []
+  },
+  "imports": [
+    "json"
+  ],
+  "inlined_runs": [
+    {
+      "cell": 0,
+      "cells": 1,
+      "line": 1,
+      "notebook": "magics",
+      "status": "inlined",
+      "target": "helpers"
+    }
+  ],
+  "packages": [],
+  "parameters": [],
+  "pip_requirements": [],
+  "rewrites": [],
+  "rule_counts": {
+    "FAB-MAGIC-RUN-INLINED": 1,
+    "FAB-MAGIC-SQL": 1,
+    "FAB-NBU-NOTEBOOK": 1
+  },
+  "ruleset_version": "1.0.0",
+  "secret_refs": [],
+  "shims_required": [
+    "magics",
+    "notebook"
+  ]
+}

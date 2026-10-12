@@ -1,0 +1,141 @@
+{
+  "title": "Retail Sales Overview",
+  "refresh_seconds": null,
+  "filters": [
+    {
+      "name": "period",
+      "label": "Period",
+      "type": "date_range",
+      "default": {
+        "from": "2025-01-01",
+        "to": "2025-12-31"
+      }
+    },
+    {
+      "name": "category",
+      "label": "Category",
+      "type": "select",
+      "default": null,
+      "options_sql": "SELECT DISTINCT category FROM retail_lakehouse.dim_product ORDER BY 1",
+      "options_lakehouse_id": "<lakehouse-id>"
+    }
+  ],
+  "tiles": [
+    {
+      "id": "revenue",
+      "title": "Revenue",
+      "type": "kpi",
+      "sql": "SELECT round(sum(f.net_amount), 2) AS revenue FROM retail_lakehouse.fact_sales f JOIN retail_lakehouse.dim_product p ON p.product_id = f.product_id WHERE f.order_date BETWEEN :period_from AND :period_to AND p.category = coalesce(:category, p.category)",
+      "lakehouse_id": "<lakehouse-id>",
+      "engine": "duckdb",
+      "width": 3,
+      "height": 1,
+      "format": "currency"
+    },
+    {
+      "id": "orders",
+      "title": "Orders",
+      "type": "kpi",
+      "sql": "SELECT count(DISTINCT f.order_id) AS orders FROM retail_lakehouse.fact_sales f JOIN retail_lakehouse.dim_product p ON p.product_id = f.product_id WHERE f.order_date BETWEEN :period_from AND :period_to AND p.category = coalesce(:category, p.category)",
+      "lakehouse_id": "<lakehouse-id>",
+      "engine": "duckdb",
+      "width": 3,
+      "height": 1,
+      "format": "integer"
+    },
+    {
+      "id": "customers",
+      "title": "Customers",
+      "type": "kpi",
+      "sql": "SELECT count(DISTINCT f.customer_id) AS customers FROM retail_lakehouse.fact_sales f JOIN retail_lakehouse.dim_product p ON p.product_id = f.product_id WHERE f.order_date BETWEEN :period_from AND :period_to AND p.category = coalesce(:category, p.category)",
+      "lakehouse_id": "<lakehouse-id>",
+      "engine": "duckdb",
+      "width": 3,
+      "height": 1,
+      "format": "integer"
+    },
+    {
+      "id": "aov",
+      "title": "Average order value",
+      "type": "kpi",
+      "sql": "SELECT round(sum(f.net_amount) / count(DISTINCT f.order_id), 2) AS avg_order_value FROM retail_lakehouse.fact_sales f JOIN retail_lakehouse.dim_product p ON p.product_id = f.product_id WHERE f.order_date BETWEEN :period_from AND :period_to AND p.category = coalesce(:category, p.category)",
+      "lakehouse_id": "<lakehouse-id>",
+      "engine": "duckdb",
+      "width": 3,
+      "height": 1,
+      "format": "currency"
+    },
+    {
+      "id": "revenue_by_month",
+      "title": "Revenue by month",
+      "type": "line",
+      "sql": "SELECT strftime(date_trunc('month', f.order_date), '%Y-%m') AS month, round(sum(f.net_amount), 2) AS revenue, round(sum(f.profit), 2) AS profit FROM retail_lakehouse.fact_sales f JOIN retail_lakehouse.dim_product p ON p.product_id = f.product_id WHERE f.order_date BETWEEN :period_from AND :period_to AND p.category = coalesce(:category, p.category) GROUP BY 1 ORDER BY 1",
+      "lakehouse_id": "<lakehouse-id>",
+      "engine": "duckdb",
+      "width": 6,
+      "height": 3,
+      "x": "month",
+      "y": "revenue",
+      "series": "profit"
+    },
+    {
+      "id": "revenue_by_category",
+      "title": "Revenue by category",
+      "type": "bar",
+      "sql": "SELECT p.category, round(sum(f.net_amount), 2) AS revenue, round(sum(f.profit), 2) AS profit FROM retail_lakehouse.fact_sales f JOIN retail_lakehouse.dim_product p ON p.product_id = f.product_id WHERE f.order_date BETWEEN :period_from AND :period_to GROUP BY p.category ORDER BY revenue DESC",
+      "lakehouse_id": "<lakehouse-id>",
+      "engine": "duckdb",
+      "width": 6,
+      "height": 3,
+      "x": "category",
+      "y": "revenue"
+    },
+    {
+      "id": "channel_mix",
+      "title": "Channel mix",
+      "type": "donut",
+      "sql": "SELECT f.channel, round(sum(f.net_amount), 2) AS revenue FROM retail_lakehouse.fact_sales f JOIN retail_lakehouse.dim_product p ON p.product_id = f.product_id WHERE f.order_date BETWEEN :period_from AND :period_to AND p.category = coalesce(:category, p.category) GROUP BY f.channel ORDER BY revenue DESC",
+      "lakehouse_id": "<lakehouse-id>",
+      "engine": "duckdb",
+      "width": 4,
+      "height": 3,
+      "x": "channel",
+      "y": "revenue"
+    },
+    {
+      "id": "top_products",
+      "title": "Top 10 products",
+      "type": "table",
+      "sql": "SELECT p.product_name, p.category, sum(f.quantity) AS units, round(sum(f.net_amount), 2) AS revenue, round(100.0 * sum(f.profit) / sum(f.net_amount), 1) AS margin_pct FROM retail_lakehouse.fact_sales f JOIN retail_lakehouse.dim_product p ON p.product_id = f.product_id WHERE f.order_date BETWEEN :period_from AND :period_to AND p.category = coalesce(:category, p.category) GROUP BY p.product_name, p.category ORDER BY revenue DESC LIMIT 10",
+      "lakehouse_id": "<lakehouse-id>",
+      "engine": "duckdb",
+      "width": 8,
+      "height": 3
+    },
+    {
+      "id": "revenue_by_store",
+      "title": "Top 10 stores",
+      "type": "bar",
+      "sql": "SELECT s.store_name, round(sum(f.net_amount), 2) AS revenue FROM retail_lakehouse.fact_sales f JOIN retail_lakehouse.dim_product p ON p.product_id = f.product_id JOIN retail_lakehouse.dim_store s ON s.store_id = f.store_id WHERE f.order_date BETWEEN :period_from AND :period_to AND p.category = coalesce(:category, p.category) GROUP BY s.store_name ORDER BY revenue DESC LIMIT 10",
+      "lakehouse_id": "<lakehouse-id>",
+      "engine": "duckdb",
+      "width": 6,
+      "height": 3,
+      "x": "store_name",
+      "y": "revenue"
+    },
+    {
+      "id": "region_by_weekday",
+      "title": "Revenue by region and weekday",
+      "type": "heatmap",
+      "sql": "SELECT s.region, d.day_name AS weekday, round(sum(f.net_amount), 2) AS revenue FROM retail_lakehouse.fact_sales f JOIN retail_lakehouse.dim_product p ON p.product_id = f.product_id JOIN retail_lakehouse.dim_store s ON s.store_id = f.store_id JOIN retail_lakehouse.dim_date d ON d.date_key = f.date_key WHERE f.order_date BETWEEN :period_from AND :period_to AND p.category = coalesce(:category, p.category) GROUP BY s.region, d.day_name, d.day_of_week ORDER BY s.region, d.day_of_week",
+      "lakehouse_id": "<lakehouse-id>",
+      "engine": "duckdb",
+      "width": 6,
+      "height": 3,
+      "x": "weekday",
+      "y": "region",
+      "series": "revenue"
+    }
+  ]
+}

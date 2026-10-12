@@ -1,0 +1,69 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Justin Dodrill
+#
+# Optional PyPI upload of the two Python distributions (olcf, olcf-fabric), from the reviewed release assets.
+#
+# It runs only when a maintainer PUBLISHES the draft that release.yml created (release: published), and only when the repository variable
+# PUBLISH_PYPI is "true". It does not rebuild anything: it downloads the wheels and source archives attached to the release, verifies them against the
+# release's SHA256SUMS, and uploads exactly those files with trusted publishing (OIDC, no stored token) from the protected environment "pypi".
+#
+# Before enabling (R02 in docs/development/release-readiness.md):
+#   * create both projects on PyPI and register a trusted publisher for each: this repository, workflow pypi.yml, environment pypi
+#   * add required reviewers to the "pypi" environment
+#   * remember that a GitHub prerelease flag does not make a PyPI version a pre-release: 0.1.0 is an ordinary release on PyPI (PEP 440 pre-releases need a
+#     version such as 0.1.0b1); decide the version convention before the first upload, PyPI files cannot be replaced
+name: pypi
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.release.tag_name }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: publish ${{ github.event.release.tag_name }} to PyPI
+    if: vars.PUBLISH_PYPI == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: {name: pypi}
+    permissions:
+      contents: read           # download the release assets
+      id-token: write          # trusted publishing
+    env:
+      TAG: ${{ github.event.release.tag_name }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: download the reviewed release assets
+        run: |
+          mkdir -p dl
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir dl --pattern 'SHA256SUMS' --pattern '*.whl' --pattern '*.tar.gz'
+          ls -l dl
+      - name: verify the checksums and the expected file set
+        run: |
+          set -euo pipefail
+          version="${TAG#v}"
+          cd dl
+          for f in "olcf-${version}-py3-none-any.whl" "olcf-${version}.tar.gz" "olcf_fabric-${version}-py3-none-any.whl" "olcf_fabric-${version}.tar.gz"; do
+            [ -f "$f" ] || { echo "release $TAG lacks $f"; exit 1; }
+            grep -q -F "  $f" SHA256SUMS || { echo "$f is not listed in SHA256SUMS"; exit 1; }
+          done
+          # verify every downloaded distribution (the checksum file also lists files that were not downloaded)
+          grep -E '  (olcf|olcf_fabric)-.*(\.whl|\.tar\.gz)$' SHA256SUMS | sha256sum -c -
+          [ "$(ls -1 *.whl *.tar.gz | wc -l)" = 4 ] || { echo "expected exactly four distributions"; ls -1; exit 1; }
+      - name: sort the files per project (one upload, and one trusted-publisher token, per project)
+        run: |
+          mkdir -p pypi/olcf pypi/olcf-fabric
+          mv dl/olcf-*.whl dl/olcf-*.tar.gz pypi/olcf/
+          mv dl/olcf_fabric-*.whl dl/olcf_fabric-*.tar.gz pypi/olcf-fabric/
+      - name: publish olcf
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with: {packages-dir: pypi/olcf}
+      - name: publish olcf-fabric
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with: {packages-dir: pypi/olcf-fabric}

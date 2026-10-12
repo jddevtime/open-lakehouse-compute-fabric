@@ -1,0 +1,16 @@
+{
+  "default": "bronze",
+  "lakehouses": [
+    "bronze",
+    "silver"
+  ],
+  "silver_ls": [
+    "totals.json"
+  ],
+  "totals": {
+    "c1": 149.99,
+    "c2": 99.99,
+    "c3": 21.75,
+    "c4": 105.0
+  }
+}

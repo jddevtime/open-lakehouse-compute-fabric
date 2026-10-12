@@ -1,0 +1,552 @@
+{
+  "$defs": {
+    "Capsule": {
+      "additionalProperties": false,
+      "description": "The signed execution capsule that the Fabric SDK sends to the control plane: versions, submission id and idempotency key, source, runtime, data references, policy and the security block (nonce, key id and identity claims).",
+      "properties": {
+        "adapterVersion": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "Adapterversion",
+          "type": "string"
+        },
+        "compatibility": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Compatibility"
+        },
+        "context": {
+          "$ref": "#/$defs/CapsuleContext"
+        },
+        "createdAt": {
+          "title": "Createdat",
+          "type": "string"
+        },
+        "dataReferences": {
+          "$ref": "#/$defs/DataReferences"
+        },
+        "idempotencyKey": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Idempotencykey",
+          "type": "string"
+        },
+        "parameters": {
+          "additionalProperties": true,
+          "title": "Parameters",
+          "type": "object"
+        },
+        "policy": {
+          "$ref": "#/$defs/CapsulePolicy"
+        },
+        "runtime": {
+          "$ref": "#/$defs/RuntimeRequestModel"
+        },
+        "schemaVersion": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schemaversion",
+          "type": "string"
+        },
+        "sdkVersion": {
+          "maxLength": 40,
+          "minLength": 1,
+          "title": "Sdkversion",
+          "type": "string"
+        },
+        "security": {
+          "$ref": "#/$defs/CapsuleSecurity"
+        },
+        "source": {
+          "$ref": "#/$defs/CapsuleSource"
+        },
+        "submissionId": {
+          "pattern": "^sub_[0-9A-Za-z]{26}$",
+          "title": "Submissionid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "sdkVersion",
+        "adapterVersion",
+        "submissionId",
+        "idempotencyKey",
+        "createdAt",
+        "source",
+        "security"
+      ],
+      "title": "Capsule",
+      "type": "object"
+    },
+    "CapsuleContext": {
+      "additionalProperties": false,
+      "description": "``normalized``: the Fabric keys of ``notebookutils.runtime.context`` (currentNotebookName ...). ``raw``: the dict as the session returned it.",
+      "properties": {
+        "normalized": {
+          "additionalProperties": true,
+          "title": "Normalized",
+          "type": "object"
+        },
+        "raw": {
+          "additionalProperties": true,
+          "title": "Raw",
+          "type": "object"
+        }
+      },
+      "title": "CapsuleContext",
+      "type": "object"
+    },
+    "CapsulePolicy": {
+      "additionalProperties": false,
+      "description": "The scheduling policy a capsule asks for: queue, priority, resources, timeout and retries.",
+      "properties": {
+        "allowPipInstall": {
+          "default": false,
+          "title": "Allowpipinstall",
+          "type": "boolean"
+        },
+        "placement": {
+          "additionalProperties": true,
+          "title": "Placement",
+          "type": "object"
+        },
+        "priority": {
+          "anyOf": [
+            {
+              "maximum": 100,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Priority"
+        },
+        "queue": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Queue"
+        },
+        "resources": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Resources"
+        },
+        "retentionDays": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Retentiondays"
+        },
+        "retries": {
+          "default": 0,
+          "maximum": 10,
+          "minimum": 0,
+          "title": "Retries",
+          "type": "integer"
+        },
+        "timeoutSeconds": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Timeoutseconds"
+        }
+      },
+      "title": "CapsulePolicy",
+      "type": "object"
+    },
+    "CapsuleSecurity": {
+      "additionalProperties": false,
+      "description": "Identity *claims* (what the caller says it is; the authenticated token is the authority) and replay-protection material.",
+      "properties": {
+        "correlationId": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Correlationid"
+        },
+        "identity": {
+          "additionalProperties": true,
+          "title": "Identity",
+          "type": "object"
+        },
+        "keyId": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Keyid",
+          "type": "string"
+        },
+        "nonce": {
+          "maxLength": 128,
+          "minLength": 16,
+          "title": "Nonce",
+          "type": "string"
+        },
+        "secretRefs": {
+          "items": {
+            "$ref": "#/$defs/SecretRef"
+          },
+          "title": "Secretrefs",
+          "type": "array"
+        }
+      },
+      "required": [
+        "nonce",
+        "keyId"
+      ],
+      "title": "CapsuleSecurity",
+      "type": "object"
+    },
+    "CapsuleSource": {
+      "additionalProperties": false,
+      "description": "``mode='inline'``: ``content`` is the notebook. ``mode='pull'``: only identifiers travel and the control plane fetches the definition with the broker identity.",
+      "properties": {
+        "bundled": {
+          "additionalProperties": {
+            "$ref": "#/$defs/OriginalDocument"
+          },
+          "title": "Bundled",
+          "type": "object"
+        },
+        "content": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Content"
+        },
+        "excludedCells": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Excludedcells",
+          "type": "array"
+        },
+        "format": {
+          "default": "ipynb",
+          "enum": [
+            "ipynb",
+            "fabric_git_source",
+            "py"
+          ],
+          "title": "Format",
+          "type": "string"
+        },
+        "mode": {
+          "default": "inline",
+          "enum": [
+            "inline",
+            "pull"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "notebookId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Notebookid"
+        },
+        "notebookName": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Notebookname"
+        },
+        "original": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/OriginalDocument"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sha256"
+        },
+        "workspaceId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Workspaceid"
+        },
+        "workspaceName": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Workspacename"
+        }
+      },
+      "title": "CapsuleSource",
+      "type": "object"
+    },
+    "DataReferences": {
+      "additionalProperties": false,
+      "description": "The data references of a capsule: those the SDK resolved itself and logical references the control plane resolves.",
+      "properties": {
+        "logical": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Logical",
+          "type": "array"
+        },
+        "resolved": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Resolved",
+          "type": "array"
+        }
+      },
+      "title": "DataReferences",
+      "type": "object"
+    },
+    "OriginalDocument": {
+      "additionalProperties": false,
+      "description": "A notebook document exactly as Fabric returned it (kept for audit; the *normalised* source is what runs).",
+      "properties": {
+        "content": {
+          "title": "Content",
+          "type": "string"
+        },
+        "format": {
+          "enum": [
+            "ipynb",
+            "fabric_git_source",
+            "py"
+          ],
+          "title": "Format",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "format",
+        "content",
+        "sha256"
+      ],
+      "title": "OriginalDocument",
+      "type": "object"
+    },
+    "RuntimeRequestModel": {
+      "additionalProperties": false,
+      "description": "The runtime section of a capsule: runtime family, version constraints, an optional dependency lock and the Spark settings the author asks for.",
+      "properties": {
+        "constraints": {
+          "additionalProperties": true,
+          "title": "Constraints",
+          "type": "object"
+        },
+        "dependencyLock": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Dependencylock"
+        },
+        "environmentId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Environmentid"
+        },
+        "family": {
+          "default": "fabric-2.0-compatible",
+          "title": "Family",
+          "type": "string"
+        },
+        "sparkConf": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Sparkconf",
+          "type": "object"
+        }
+      },
+      "title": "RuntimeRequestModel",
+      "type": "object"
+    },
+    "SecretRef": {
+      "additionalProperties": false,
+      "description": "A Key Vault secret the notebook reads with ``notebookutils.credentials.getSecret(vault, name)``. A reference, never a value.",
+      "properties": {
+        "name": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "vault": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Vault",
+          "type": "string"
+        }
+      },
+      "required": [
+        "vault",
+        "name"
+      ],
+      "title": "SecretRef",
+      "type": "object"
+    },
+    "Signature": {
+      "additionalProperties": false,
+      "description": "Detached signature over the canonical capsule: ``mac = HMAC-SHA256(key, MAC_DOMAIN + canonical_bytes)`` (hex).",
+      "properties": {
+        "alg": {
+          "const": "HMAC-SHA256",
+          "default": "HMAC-SHA256",
+          "title": "Alg",
+          "type": "string"
+        },
+        "digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Digest",
+          "type": "string"
+        },
+        "keyId": {
+          "title": "Keyid",
+          "type": "string"
+        },
+        "mac": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Mac",
+          "type": "string"
+        }
+      },
+      "required": [
+        "keyId",
+        "digest",
+        "mac"
+      ],
+      "title": "Signature",
+      "type": "object"
+    }
+  },
+  "$id": "https://olcf.invalid/schemas/capsule-v1.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Capsule schema version 1.0. Generated from olcf.fabric.capsule; the stdlib-only SDK builds documents that validate against it. Compatible with Fabric Runtime 2.0; not a Microsoft schema.",
+  "properties": {
+    "capsule": {
+      "$ref": "#/$defs/Capsule"
+    },
+    "signature": {
+      "$ref": "#/$defs/Signature"
+    }
+  },
+  "required": [
+    "capsule",
+    "signature"
+  ],
+  "title": "OLCF execution capsule v1 (signed submit body)",
+  "type": "object"
+}

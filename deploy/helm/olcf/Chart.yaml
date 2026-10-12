@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Justin Dodrill
+apiVersion: v2
+name: olcf
+description: Open Lakehouse Compute Fabric - control plane, Spark workers and the Kubernetes compute provider
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+kubeVersion: ">=1.27.0-0"
+keywords: [lakehouse, spark, delta-lake, iceberg, microsoft-fabric, mcp]
+home: https://github.com/jddevtime/open-lakehouse-compute-fabric
+maintainers:
+  - name: Justin Dodrill
+annotations:
+  licenses: Apache-2.0

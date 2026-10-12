@@ -1,0 +1,3 @@
+# The notebook fixtures are deliberately not valid standalone Python (they use the Fabric globals `spark` and `notebookutils`, shell escapes and other blocked constructs).
+extend = "../../pyproject.toml"
+extend-exclude = ["cases/*/notebook.ipynb", "cases/*/notebook-content.py", "negative"]

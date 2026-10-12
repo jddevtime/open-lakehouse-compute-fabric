@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "olcf-fabric"
+dynamic = ["version"]
+description = "Submit a Microsoft Fabric notebook to an on-prem Open Lakehouse Compute Fabric (Fabric Runtime 2.0 Compatible). Standard library only."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+authors = [{ name = "Justin Dodrill" }]
+keywords = ["fabric", "spark", "lakehouse", "notebook", "onelake"]
+classifiers = [
+  "License :: OSI Approved :: Apache Software License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Operating System :: OS Independent",
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/jddevtime/open-lakehouse-compute-fabric"
+Documentation = "https://github.com/jddevtime/open-lakehouse-compute-fabric/tree/main/docs"
+Source = "https://github.com/jddevtime/open-lakehouse-compute-fabric"
+Issues = "https://github.com/jddevtime/open-lakehouse-compute-fabric/issues"
+Changelog = "https://github.com/jddevtime/open-lakehouse-compute-fabric/blob/main/CHANGELOG.md"
+
+[tool.setuptools]
+packages = ["olcf_fabric"]
+# the Apache-2.0 text and NOTICE ship in the wheel (.dist-info) and the sdist (setuptools also picks up LICENSE*/NOTICE* by default; this makes it explicit)
+license-files = ["LICENSE", "NOTICE"]
+
+[tool.setuptools.dynamic]
+version = { attr = "olcf_fabric.__version__" }

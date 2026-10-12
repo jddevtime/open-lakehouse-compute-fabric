@@ -1,0 +1,314 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Justin Dodrill
+#
+# Continuous integration: lint, docs, types, unit + integration tests (SQLite and PostgreSQL), Spark tests with a cached runtime, browser tests, build.
+# Nothing here uses secrets; pull requests from forks run with a read-only token.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  workflow_call:                # reused by release.yml as a release gate (github.workflow is then the caller's name, see the concurrency group)
+
+permissions:
+  contents: read
+
+# github.workflow is the *calling* workflow's name when this file runs through workflow_call, so a release run never shares a group with (or cancels, or is
+# cancelled by) the stand-alone ci run of the same ref, and never shares one with the caller itself.
+concurrency:
+  group: ci-gate-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.workflow == 'ci' }}
+
+env:
+  UV_NO_PROGRESS: "1"
+  PYTHONUNBUFFERED: "1"
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
+jobs:
+  lint:
+    name: lint (ruff)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with: {enable-cache: true}
+      - name: ruff
+        run: uvx ruff check src tests sdk scripts examples deploy/scripts
+      - name: shellcheck (installers, deploy scripts)
+        run: |
+          shellcheck -s sh -S warning scripts/install.sh scripts/uninstall.sh scripts/make_offline_bundle.sh \
+            deploy/docker/entrypoint.sh deploy/docker/worker-entrypoint.sh deploy/docker/enroll.sh deploy/scripts/gen-env.sh
+      - name: systemd units
+        run: |
+          for f in deploy/systemd/*.service; do
+            cp "$f" "/tmp/$(basename "$f")"
+            if systemd-analyze verify "/tmp/$(basename "$f")" 2>&1 | grep -Ei 'unknown (key|section)|invalid|bad'; then exit 1; fi
+          done
+
+  docs:
+    name: docs (links, CLI, settings, generated pages, headers, docstrings)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with: {enable-cache: true}
+      - run: |
+          uv venv --seed --python 3.13
+          uv pip install -e ".[dev]"
+      - name: SPDX and copyright header on every Python file
+        run: uv run --no-sync python scripts/check_headers.py
+      - name: docstring coverage (modules and public classes)
+        run: uv run --no-sync python scripts/check_docstrings.py --min-modules 95 --min-classes 95
+      - name: documentation checks (links, anchors, CLI commands, settings, state diagram, generated pages current)
+        run: uv run --no-sync python scripts/check_docs.py
+
+  types:
+    name: types (mypy, lenient)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with: {enable-cache: true}
+      - run: |
+          uv venv --seed --python 3.13
+          uv pip install -e ".[all]" mypy types-PyYAML
+      # tooling packages are a hard gate; the rest of the code base is reported (see the job summary) until it is clean
+      - name: mypy (cli + sdk, must pass)
+        run: uv run --no-sync mypy src/olcf/cli src/olcf/sdk --ignore-missing-imports --follow-imports=silent
+      - name: mypy (whole package, informational)
+        continue-on-error: true
+        run: |
+          set +e
+          uv run --no-sync mypy src/olcf --ignore-missing-imports --follow-imports=silent | tee mypy.txt
+          { echo '### mypy (whole package, lenient)'; tail -n 1 mypy.txt; } >> "$GITHUB_STEP_SUMMARY"
+
+  tests:
+    name: tests (${{ matrix.os }}, py${{ matrix.python }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {os: ubuntu-latest, python: "3.11"}
+          - {os: ubuntu-latest, python: "3.13"}
+          - {os: macos-latest, python: "3.13"}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with: {enable-cache: true}
+      - uses: actions/setup-java@v4
+        with: {distribution: temurin, java-version: "21"}
+      - uses: actions/setup-node@v4
+        with: {node-version: "22"}
+      # --seed puts pip in the environment (uv venv makes it without); environment publication, layers and scripts/build_fabric_sdk.sh run `python -m pip`
+      - run: |
+          uv venv --seed --python ${{ matrix.python }}
+          uv pip install -e ".[dev]"
+      - name: unit and integration tests (SQLite; no Spark, no browser, no live systems)
+        env: {OLCF_REQUIRE_NODE: "1"}
+        run: uv run --no-sync pytest -m "not spark and not e2e and not live and not postgres" -q -p no:cacheprovider --timeout 300 --maxfail=20 tests
+      - name: collection does not depend on the order of the test modules
+        if: matrix.os == 'ubuntu-latest' && matrix.python == '3.13'
+        env: {OLCF_TEST_ORDER: reverse}
+        run: uv run --no-sync pytest --collect-only -q -p no:cacheprovider tests
+
+  windows:
+    name: tests (windows-latest, targeted)
+    runs-on: windows-latest
+    timeout-minutes: 40
+    # Windows is not a platform of the full suite (the Spark runtime and the POSIX process model are covered on Linux/macOS); this job proves that the control plane starts, every
+    # module imports, and the cross-process file lock (msvcrt) works - the things a POSIX-only import (fcntl) used to break (review finding F06).
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with: {enable-cache: true}
+      - uses: actions/setup-node@v4
+        with: {node-version: "22"}
+      - run: |
+          uv venv --seed --python 3.13
+          uv pip install -e ".[dev]"
+      - name: file lock (real msvcrt), start-up with every module, test layout
+        env: {OLCF_REQUIRE_NODE: "1"}
+        run: uv run --no-sync pytest -q -p no:cacheprovider --timeout 300 tests/unit/test_filelock.py tests/unit/test_windows_startup.py tests/unit/test_test_layout.py tests/web tests/tooling/test_gen_reference.py
+      - name: Git sync and dependency layers (they take the lock)
+        run: uv run --no-sync pytest -q -p no:cacheprovider --timeout 600 tests/items/test_git_sync.py "tests/items/test_environments.py" -k "git or layer"
+
+  postgres:
+    name: tests (PostgreSQL)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: olcf
+          POSTGRES_PASSWORD: olcf-ci-only
+          POSTGRES_DB: olcf_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U olcf -d olcf_test" --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      OLCF_TEST_POSTGRES_URL: postgresql+psycopg://olcf:olcf-ci-only@localhost:5432/olcf_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with: {enable-cache: true}
+      - run: |
+          uv venv --seed --python 3.13
+          uv pip install -e ".[dev]"
+      - run: uv run --no-sync pytest -m postgres -q -p no:cacheprovider --timeout 300 tests
+
+  spark:
+    name: tests (Spark, cached runtime)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      OLCF_TEST_RUNTIME_DIR: ${{ github.workspace }}/.cache/olcf-test-runtime
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with: {enable-cache: true}
+      - uses: actions/setup-java@v4
+        with: {distribution: temurin, java-version: "21"}
+      - uses: actions/cache@v4
+        with:
+          path: .cache/olcf-test-runtime
+          key: olcf-spark-runtime-${{ runner.os }}-${{ hashFiles('tests/node/runtime_fixture.py', 'src/olcf/runtime/manifests/**', 'src/olcf/runtime/locktool.py') }}
+          restore-keys: olcf-spark-runtime-${{ runner.os }}-
+      - run: |
+          uv venv --seed --python 3.13
+          uv pip install -e ".[dev]"
+      - name: build the test runtime (a no-op when the cache hit)
+        run: uv run --no-sync python -m tests.node.runtime_fixture
+      - name: Spark tests
+        run: uv run --no-sync pytest -m spark -q -p no:cacheprovider --timeout 900 tests
+
+  delta:
+    name: Delta / Iceberg on a real runtime
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    # needs Maven Central; the result is attached to the run as the release record for Delta support
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with: {enable-cache: true}
+      - uses: actions/setup-java@v4
+        with: {distribution: temurin, java-version: "21"}
+      - run: |
+          uv venv --seed --python 3.13
+          uv pip install -e ".[all]"
+      - run: uv run --no-sync python scripts/verify_spark_delta.py --iceberg | tee delta-report.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: {name: delta-report, path: delta-report.txt, retention-days: 30}
+
+  ui-e2e:
+    name: browser tests (Playwright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      # a missing browser is a FAILURE here, never a skip (tests/e2e/conftest.py)
+      OLCF_E2E_REQUIRE_BROWSER: "1"
+      OLCF_E2E_TRACE: "1"
+      OLCF_E2E_ARTIFACTS: ${{ github.workspace }}/test-results
+      # the notebook/SQL/Spark UI tests need the cached runtime; without it they would skip and the gate below would fail the job
+      OLCF_TEST_RUNTIME_DIR: ${{ github.workspace }}/.cache/olcf-test-runtime
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with: {enable-cache: true}
+      - uses: actions/setup-java@v4
+        with: {distribution: temurin, java-version: "21"}
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('pyproject.toml') }}
+      - uses: actions/cache@v4
+        with:
+          path: .cache/olcf-test-runtime
+          key: olcf-spark-runtime-${{ runner.os }}-${{ hashFiles('tests/node/runtime_fixture.py', 'src/olcf/runtime/manifests/**', 'src/olcf/runtime/locktool.py') }}
+          restore-keys: olcf-spark-runtime-${{ runner.os }}-
+      - run: |
+          uv venv --seed --python 3.13
+          uv pip install -e ".[dev]"
+      # installs the Chromium build that THIS Playwright version expects, plus its system libraries; the tests then use Playwright's default resolution
+      - name: install Chromium
+        run: uv run --no-sync playwright install --with-deps chromium
+      - name: build the test runtime (a no-op when the cache hit)
+        run: uv run --no-sync python -m tests.node.runtime_fixture
+      - name: browser tests
+        run: uv run --no-sync pytest -m e2e -q -p no:cacheprovider --timeout 600 --junitxml=e2e-junit.xml tests/e2e
+      # pytest exits 0 when everything was skipped: fail unless a real number of browser tests ran and none was skipped
+      - name: gate - browser tests really ran
+        if: always()
+        run: uv run --no-sync python scripts/check_junit_run.py e2e-junit.xml --min-tests 60
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: {name: e2e-junit, path: e2e-junit.xml, if-no-files-found: warn, retention-days: 14}
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with: {name: e2e-traces, path: "test-results", if-no-files-found: ignore, retention-days: 7}
+
+  installers:
+    name: installer smoke test (${{ matrix.os }})
+    needs: build
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: {name: dist, path: dist}
+      - name: install (POSIX)
+        if: runner.os != 'Windows'
+        run: |
+          sh scripts/install.sh --wheel "$(ls dist/olcf-*.whl)" --prefix "$RUNNER_TEMP/olcf" --data-dir "$RUNNER_TEMP/olcf-data" --no-runtime --no-modify-path
+          "$RUNNER_TEMP/olcf/bin/olcf" --version
+          "$RUNNER_TEMP/olcf/bin/olcf" doctor || true
+          sh scripts/uninstall.sh --prefix "$RUNNER_TEMP/olcf" --data-dir "$RUNNER_TEMP/olcf-data" --purge --yes
+          test ! -e "$RUNNER_TEMP/olcf"
+      - name: install (Windows PowerShell 5.1)
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          $wheel = (Get-ChildItem dist\olcf-*.whl).FullName
+          $prefix = Join-Path $env:RUNNER_TEMP 'olcf'; $data = Join-Path $env:RUNNER_TEMP 'olcf-data'
+          .\scripts\install.ps1 -Wheel $wheel -Prefix $prefix -DataDir $data -NoRuntime
+          & "$prefix\bin\olcf.cmd" --version
+          .\scripts\uninstall.ps1 -Prefix $prefix -DataDir $data -Purge -Yes
+          if (Test-Path $prefix) { throw "uninstall left $prefix behind" }
+      - name: PSScriptAnalyzer
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Install-Module PSScriptAnalyzer -Force -Scope CurrentUser
+          # -Path takes one path, so the scripts are analysed one by one
+          $scripts = 'scripts/install.ps1', 'scripts/uninstall.ps1', 'deploy/windows/install-service.ps1'
+          $errors = @()
+          foreach ($f in $scripts) {
+            Invoke-ScriptAnalyzer -Path $f -Severity Error,Warning -ExcludeRule PSAvoidUsingWriteHost | Format-Table -AutoSize
+            $errors += @(Invoke-ScriptAnalyzer -Path $f -Severity Error)
+          }
+          if ($errors.Count -gt 0) { throw "PSScriptAnalyzer found errors" }
+
+  build:
+    name: build (wheel, sdist, SBOM, notices)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with: {enable-cache: true}
+      - run: bash scripts/build_release.sh --out dist
+      - uses: actions/upload-artifact@v4
+        with: {name: dist, path: dist, retention-days: 14}

@@ -1,0 +1,126 @@
+{
+  "fabric_only_connector": {
+    "blocked": true,
+    "blockers": [
+      "FAB-IMP-FABRIC-CONNECTOR",
+      "FAB-PY-SYNAPSESQL"
+    ],
+    "description": "warehouse connector",
+    "lakehouse": "local",
+    "rule_counts": {
+      "FAB-IMP-FABRIC-CONNECTOR": 1,
+      "FAB-PY-SYNAPSESQL": 1
+    }
+  },
+  "lakehouse_default_on_object_storage": {
+    "blocked": true,
+    "blockers": [
+      "FAB-PATH-MOUNT-REMOTE"
+    ],
+    "description": "the FUSE mount cannot be emulated for a lakehouse on object storage",
+    "lakehouse": "remote",
+    "rule_counts": {
+      "FAB-PATH-MOUNT-REMOTE": 1
+    }
+  },
+  "mount_without_lakehouse": {
+    "blocked": true,
+    "blockers": [
+      "FAB-PATH-MOUNT-NOLAKEHOUSE"
+    ],
+    "description": "no default lakehouse attached",
+    "lakehouse": "none",
+    "rule_counts": {
+      "FAB-PATH-MOUNT-NOLAKEHOUSE": 1
+    }
+  },
+  "pip_from_code_forbidden": {
+    "blocked": true,
+    "blockers": [
+      "FAB-PY-PIP"
+    ],
+    "description": "pip invoked from Python code",
+    "lakehouse": "local",
+    "rule_counts": {
+      "FAB-PY-PIP": 1
+    }
+  },
+  "pip_install_forbidden": {
+    "blocked": true,
+    "blockers": [
+      "FAB-MAGIC-PIP-BLOCKED"
+    ],
+    "description": "%pip install while policy forbids it",
+    "lakehouse": "local",
+    "rule_counts": {
+      "FAB-IMP-FABRIC-PREINSTALLED": 1,
+      "FAB-MAGIC-PIP-BLOCKED": 1
+    }
+  },
+  "sempy": {
+    "blocked": true,
+    "blockers": [
+      "FAB-IMP-SEMPY"
+    ],
+    "description": "Semantic Link needs the Fabric semantic model service",
+    "lakehouse": "local",
+    "rule_counts": {
+      "FAB-IMP-SEMPY": 1
+    }
+  },
+  "shell_bang": {
+    "blocked": true,
+    "blockers": [
+      "FAB-MAGIC-SHELL"
+    ],
+    "description": "shell escape with !",
+    "lakehouse": "local",
+    "rule_counts": {
+      "FAB-MAGIC-SHELL": 1
+    }
+  },
+  "shell_magic": {
+    "blocked": true,
+    "blockers": [
+      "FAB-MAGIC-SHELL"
+    ],
+    "description": "%%sh cell magic",
+    "lakehouse": "local",
+    "rule_counts": {
+      "FAB-MAGIC-SHELL": 1
+    }
+  },
+  "shell_os_system": {
+    "blocked": true,
+    "blockers": [
+      "FAB-PY-SHELL"
+    ],
+    "description": "os.system",
+    "lakehouse": "local",
+    "rule_counts": {
+      "FAB-PY-SHELL": 1
+    }
+  },
+  "shell_subprocess_shell_true": {
+    "blocked": true,
+    "blockers": [
+      "FAB-PY-SHELL"
+    ],
+    "description": "subprocess with shell=True",
+    "lakehouse": "local",
+    "rule_counts": {
+      "FAB-PY-SHELL": 1
+    }
+  },
+  "unknown_notebookutils_api": {
+    "blocked": true,
+    "blockers": [
+      "FAB-NBU-UNKNOWN"
+    ],
+    "description": "an API that does not exist in notebookutils",
+    "lakehouse": "local",
+    "rule_counts": {
+      "FAB-NBU-UNKNOWN": 1
+    }
+  }
+}

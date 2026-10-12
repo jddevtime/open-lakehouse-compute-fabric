@@ -1,0 +1,1 @@
+let Source = SharePoint.Files("https://contoso.sharepoint.com/sites/x", [ApiVersion = 15]), f = Source{[Name="a.xlsx"]}[Content], x = Excel.Workbook(f, null, true), s = x{[Item="Sheet1",Kind="Sheet"]}[Data] in s

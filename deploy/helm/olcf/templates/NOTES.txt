@@ -1,0 +1,42 @@
+{{- /* SPDX-License-Identifier: Apache-2.0 */ -}}
+{{- /* Copyright (c) 2026 Justin Dodrill */ -}}
+OLCF {{ .Chart.AppVersion }} installed as release "{{ .Release.Name }}" in namespace "{{ .Release.Namespace }}".
+
+Control plane:
+  kubectl -n {{ .Release.Namespace }} get pods -l app.kubernetes.io/instance={{ .Release.Name }}
+{{- if .Values.ingress.enabled }}
+{{- range .Values.ingress.hosts }}
+  URL: {{ if $.Values.ingress.tls }}https{{ else }}http{{ end }}://{{ .host }}
+{{- end }}
+{{- else }}
+  Reach it locally:  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "olcf.fullname" . }} {{ .Values.controlPlane.service.port }}:{{ .Values.controlPlane.service.port }}
+  then open http://127.0.0.1:{{ .Values.controlPlane.service.port }}
+{{- end }}
+
+First administrator "admin"; its password is in the Secret {{ include "olcf.secretName" . }}:
+  kubectl -n {{ .Release.Namespace }} get secret {{ include "olcf.secretName" . }} -o jsonpath='{.data.{{ .Values.secrets.adminPasswordKey }}}' | base64 -d; echo
+Change it after the first sign-in, and keep that Secret: it also holds the master key that protects every stored credential.
+{{- if .Values.workers.enabled }}
+
+Workers: {{ .Values.workers.replicas }} pod(s) {{ include "olcf.fullname" . }}-worker-N enrol themselves with single-use tokens minted by the post-install hook
+(Secret {{ include "olcf.fullname" . }}-enroll).  Check with:  olcf worker list
+{{- end }}
+{{- if not .Values.controlPlane.publicUrl }}
+
+WARNING: controlPlane.publicUrl is not set.  Set it to the external https URL so enrolment commands, OIDC redirects and Fabric snippets are correct.
+{{- end }}
+{{- if and .Release.IsInstall (gt (int .Values.controlPlane.replicaCount) 1) }}
+
+NOTE: this release started with {{ .Values.controlPlane.replicaCount }} control-plane replicas that all initialise the shared data directory on first start.
+If the pods report a startup race, scale to 1 and back:  helm upgrade {{ .Release.Name }} <chart> --reuse-values --set controlPlane.replicaCount=1  (wait until ready), then raise it again.
+{{- end }}
+{{- if .Values.database.bundled.enabled }}
+
+WARNING: the bundled single-pod PostgreSQL is for demos only.  Use database.external.* in production.
+{{- end }}
+{{- if .Values.kubernetesProvider.enabled }}
+
+Kubernetes compute provider: RBAC for namespace "{{ include "olcf.computeNamespace" . }}" is in place; register the compute target in OLCF (it uses the pod's in-cluster credentials).
+{{- end }}
+
+Test:  helm test {{ .Release.Name }} -n {{ .Release.Namespace }}

@@ -1,0 +1,176 @@
+{{/* SPDX-License-Identifier: Apache-2.0 */}}
+{{/* Copyright (c) 2026 Justin Dodrill */}}
+{{- if .Values.networkPolicy.enabled }}
+{{/* Spark port ranges (values: spark.ports) - the same ranges the control plane allocates from (see configmap.yaml). */}}
+{{- $all := list "masterRpc" "masterUi" "workerRpc" "workerUi" "driverUi" "driver" "blockManager" }}
+{{- $peer := list "masterRpc" "masterUi" "workerRpc" "workerUi" "driver" "blockManager" }}
+{{- $driverSide := list "driver" "blockManager" }}
+{{- $np := .Values.networkPolicy }}
+# control plane: accepts the API (users, ingress controller, this release's workers, hooks and tests); egress is open (egressAllowAll) or limited to DNS, the database, the
+# workers' Spark ports, HTTPS (object storage, identity provider, Kubernetes API), the Kubernetes API server for the compute provider and the monitoring / extra rules
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "olcf.fullname" . }}-control-plane
+  labels:
+    {{- include "olcf.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "olcf.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: control-plane
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - ports:
+        - {port: http, protocol: TCP}
+      {{- if not $np.allowIngressFromAnywhere }}
+      from:
+        - podSelector:
+            matchLabels:
+              {{- include "olcf.selectorLabels" . | nindent 14 }}
+        {{- with $np.ingressFrom }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- with $np.monitoring.ingressFrom }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- end }}
+    {{- if and .Values.controlPlane.embeddedWorker .Values.workers.enabled }}
+    - from:                               # the embedded worker hosts Spark drivers in this pod: executors on the workers connect back to them
+        {{- include "olcf.podPeer" (dict "ctx" . "component" "worker") | nindent 8 }}
+      ports:
+        {{- range $name := $driverSide }}
+        {{- include "olcf.portRule" (index $.Values.spark.ports $name) | nindent 8 }}
+        {{- end }}
+    {{- end }}
+  egress:
+    {{- if $np.egressAllowAll }}
+    - {}
+    {{- else }}
+    - to:                                 # DNS
+        - namespaceSelector:
+            {{- toYaml $np.egress.dns.namespaceSelector | nindent 12 }}
+          podSelector:
+            {{- toYaml $np.egress.dns.podSelector | nindent 12 }}
+      ports:
+        - {port: 53, protocol: UDP}
+        - {port: 53, protocol: TCP}
+    {{- if .Values.database.bundled.enabled }}
+    - to:                                 # the bundled PostgreSQL
+        {{- include "olcf.podPeer" (dict "ctx" . "component" "postgres") | nindent 8 }}
+      ports:
+        - {port: 5432, protocol: TCP}
+    {{- else }}
+    - to:                                 # the external PostgreSQL
+        {{- range $np.egress.database.cidrs }}
+        - ipBlock: {cidr: {{ . }}}
+        {{- end }}
+      ports:
+        - {port: {{ $np.egress.database.port }}, protocol: TCP}
+    {{- end }}
+    - to:                                 # object storage, identity provider, Fabric endpoints, the Kubernetes API on 443
+        {{- range $np.egress.https.cidrs }}
+        - ipBlock: {cidr: {{ . }}}
+        {{- end }}
+      ports:
+        {{- range $np.egress.https.ports }}
+        - {port: {{ . }}, protocol: TCP}
+        {{- end }}
+    {{- if .Values.kubernetesProvider.enabled }}
+    - to:                                 # the Kubernetes compute provider talks to the API server (driver pods, logs)
+        {{- range (default $np.egress.https.cidrs $np.egress.apiServer.cidrs) }}
+        - ipBlock: {cidr: {{ . }}}
+        {{- end }}
+      ports:
+        {{- range $np.egress.apiServer.ports }}
+        - {port: {{ . }}, protocol: TCP}
+        {{- end }}
+    {{- end }}
+    {{- if .Values.workers.enabled }}
+    - to:                                 # control plane -> workers: master RPC and UI, worker RPC and UI, driver UI, driver and block-manager ports (status, Spark UI proxy, cancellation)
+        {{- include "olcf.podPeer" (dict "ctx" . "component" "worker") | nindent 8 }}
+      ports:
+        {{- range $name := $all }}
+        {{- include "olcf.portRule" (index $.Values.spark.ports $name) | nindent 8 }}
+        {{- end }}
+    {{- end }}
+    {{- with $np.monitoring.egressTo }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- with $np.egress.extra }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- end }}
+{{- if .Values.workers.enabled }}
+---
+# workers: the control plane and sibling workers (Spark executors, master, worker daemons) may reach their Spark ports - only those ranges, only from pods with the right
+# labels; they may connect out to the control plane, DNS, object storage (HTTPS) and each other
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "olcf.fullname" . }}-workers
+  labels:
+    {{- include "olcf.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "olcf.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: worker
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:                               # control plane -> workers: every Spark range (status, Spark UI proxy, drivers started by the control plane)
+        {{- include "olcf.podPeer" (dict "ctx" . "component" "control-plane") | nindent 8 }}
+      ports:
+        {{- range $name := $all }}
+        {{- include "olcf.portRule" (index $.Values.spark.ports $name) | nindent 8 }}
+        {{- end }}
+    - from:                               # worker <-> worker: master, worker daemons, executors, drivers and block managers
+        {{- include "olcf.podPeer" (dict "ctx" . "component" "worker") | nindent 8 }}
+      ports:
+        {{- range $name := $peer }}
+        {{- include "olcf.portRule" (index $.Values.spark.ports $name) | nindent 8 }}
+        {{- end }}
+    {{- with $np.workerIngressFrom }}
+    - from:
+        {{- toYaml . | nindent 8 }}
+      ports:
+        {{- range $name := $all }}
+        {{- include "olcf.portRule" (index $.Values.spark.ports $name) | nindent 8 }}
+        {{- end }}
+    {{- end }}
+  egress:
+    {{- if $np.egressAllowAll }}
+    - {}
+    {{- else }}
+    - to:                                 # DNS
+        - namespaceSelector:
+            {{- toYaml $np.egress.dns.namespaceSelector | nindent 12 }}
+          podSelector:
+            {{- toYaml $np.egress.dns.podSelector | nindent 12 }}
+      ports:
+        - {port: 53, protocol: UDP}
+        - {port: 53, protocol: TCP}
+    - to:                                 # the control plane (agent connection, artifact upload)
+        {{- include "olcf.podPeer" (dict "ctx" . "component" "control-plane") | nindent 8 }}
+      ports:
+        - {port: http, protocol: TCP}
+    - to:                                 # object storage and, when the controller URL is public, the ingress path to it
+        {{- range $np.egress.https.cidrs }}
+        - ipBlock: {cidr: {{ . }}}
+        {{- end }}
+      ports:
+        {{- range $np.egress.https.ports }}
+        - {port: {{ . }}, protocol: TCP}
+        {{- end }}
+    - to:                                 # sibling workers: master, worker daemons, executors, drivers, block managers
+        {{- include "olcf.podPeer" (dict "ctx" . "component" "worker") | nindent 8 }}
+      ports:
+        {{- range $name := $peer }}
+        {{- include "olcf.portRule" (index $.Values.spark.ports $name) | nindent 8 }}
+        {{- end }}
+    {{- with $np.egress.extra }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- end }}
+{{- end }}
+{{- end }}

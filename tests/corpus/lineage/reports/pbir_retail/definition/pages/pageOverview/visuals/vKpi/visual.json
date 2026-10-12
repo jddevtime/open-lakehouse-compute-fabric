@@ -1,0 +1,28 @@
+{
+  "name": "vKpi",
+  "visual": {
+    "visualType": "card",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Sales"
+                    }
+                  },
+                  "Property": "Order Count"
+                }
+              },
+              "queryRef": "Sales.Order Count",
+              "active": true
+            }
+          ]
+        }
+      }
+    }
+  }
+}

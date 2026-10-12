@@ -1,0 +1,14 @@
+{
+  "data_run": "standalone-only",
+  "description": "notebookutils.notebook.run / runMultiple of child notebooks and the exit value a pipeline reads",
+  "engine": "python",
+  "extra_lakehouses": [],
+  "name": "pipeline_invocation",
+  "needs": "",
+  "parameters": {
+    "batch": 7
+  },
+  "primary_format": "ipynb",
+  "standalone_engine": "python",
+  "why": "notebook.run submits a child job through the control plane callbacks; the harness runs the runner without a control plane (covered by the end-to-end tests)"
+}

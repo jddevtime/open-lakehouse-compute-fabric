@@ -1,0 +1,12 @@
+{
+  "data_run": "standalone-only",
+  "description": "Delta MERGE (DeltaTable API and SQL MERGE INTO) with a Delta table in the default lakehouse",
+  "engine": "spark",
+  "extra_lakehouses": [],
+  "name": "delta_merge",
+  "needs": "delta",
+  "parameters": {},
+  "primary_format": "ipynb",
+  "standalone_engine": "python",
+  "why": "the cached test runtime has no Delta jars (no route to Maven Central in the build sandbox); the notebook run is skipped unless the runtime has them"
+}

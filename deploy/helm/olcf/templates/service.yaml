@@ -1,0 +1,23 @@
+{{/* SPDX-License-Identifier: Apache-2.0 */}}
+{{/* Copyright (c) 2026 Justin Dodrill */}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "olcf.fullname" . }}
+  labels:
+    {{- include "olcf.labels" . | nindent 4 }}
+    app.kubernetes.io/component: control-plane
+  {{- with .Values.controlPlane.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.controlPlane.service.type }}
+  ports:
+    - name: http
+      port: {{ .Values.controlPlane.service.port }}
+      targetPort: http
+      protocol: TCP
+  selector:
+    {{- include "olcf.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: control-plane

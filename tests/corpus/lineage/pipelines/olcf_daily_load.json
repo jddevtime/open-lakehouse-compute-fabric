@@ -1,0 +1,34 @@
+{
+  "schema": "olcf.pipeline/1",
+  "name": "daily_load",
+  "parameters": {
+    "run_table": {"type": "string", "default": "orders_stage"},
+    "landing": {"type": "string", "default": "landing/2026"},
+    "other": {"type": "string"}
+  },
+  "activities": [
+    {"name": "Ingest", "type": "copy",
+     "typeProperties": {
+       "source": {"lakehouse": "bronze", "path": "@pipeline().parameters.landing", "format": "csv"},
+       "sink": {"lakehouse": "bronze", "table": "@pipeline().parameters.run_table", "mode": "overwrite"}}},
+    {"name": "Promote", "type": "copy", "dependsOn": [{"activity": "Ingest", "conditions": ["Succeeded"]}],
+     "typeProperties": {
+       "source": {"lakehouse": "bronze", "table": "orders_stage"},
+       "sink": {"lakehouse": "silver", "table": "orders", "mode": "append"}}},
+    {"name": "Clean", "type": "sql", "dependsOn": [{"activity": "Promote", "conditions": ["Succeeded"]}],
+     "typeProperties": {"engine": "spark", "lakehouse": "silver",
+       "sql": "INSERT OVERWRITE TABLE orders_clean SELECT order_id, qty * price AS revenue FROM orders WHERE status = 'paid'"}},
+    {"name": "Enrich", "type": "notebook", "dependsOn": [{"activity": "Clean", "conditions": ["Succeeded"]}],
+     "typeProperties": {"notebook": "enrich_orders"}},
+    {"name": "Score", "type": "spark_job", "dependsOn": [{"activity": "Enrich"}],
+     "typeProperties": {"sparkJob": "itm_score_job"}},
+    {"name": "Fan", "type": "for_each", "dependsOn": [{"activity": "Score"}],
+     "typeProperties": {"items": "@createArray('a','b')", "activities": [
+       {"name": "Child", "type": "child_pipeline", "typeProperties": {"pipeline": "refresh_dims"}},
+       {"name": "Py", "type": "script", "typeProperties": {"language": "python", "code": "spark.table('silver.orders_clean').write.saveAsTable('gold.orders_daily')"}}]}},
+    {"name": "Notify", "type": "http", "dependsOn": [{"activity": "Fan"}, {"activity": "Ghost"}],
+     "typeProperties": {"url": "https://hooks.example.com/notify?token=secret", "method": "POST"}},
+    {"name": "Dyn", "type": "notebook", "typeProperties": {"notebook": "@pipeline().parameters.other"}},
+    {"name": "Pause", "type": "wait", "typeProperties": {"seconds": 5}}
+  ]
+}

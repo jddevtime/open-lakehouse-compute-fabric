@@ -1,0 +1,238 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Justin Dodrill
+#
+# Release: push a tag vX.Y.Z  ->  gates (ci, container, security: the same reusable workflows that run on pull requests) -> build -> checksums -> keyless
+# signatures (sigstore / cosign) -> container images on GHCR (signed, with SBOM and provenance) -> a DRAFT GitHub release with both Python distributions
+# (olcf and olcf-fabric: wheel + sdist each), SBOMs, third-party notices, SHA256SUMS, signatures, the installers and the Helm chart.
+#
+# A maintainer reviews and publishes the draft by hand.  Publishing it triggers .github/workflows/pypi.yml (optional PyPI upload, trusted publishing).
+#
+# CAVEAT: a tag push builds and pushes the VERSIONED container images (ghcr.io/jddevtime/olcf:X.Y.Z, olcf-worker:X.Y.Z) before anybody has reviewed the draft.
+# The draft is a gate for the GitHub release and PyPI, not for GHCR.  The images job therefore uses the protected environment "release": add required
+# reviewers to it (Settings > Environments) and no image is pushed until a maintainer approves.  0.x versions never move the `latest` image tag.
+#
+# Required one-time repository settings (nothing here needs a stored secret):
+#   * Settings > Actions > General > Workflow permissions: allow "Read and write permissions" (or keep read-only; each job asks for what it needs)
+#   * Settings > Environments: create "release" (required reviewers: gate before images are pushed) and "pypi" (required reviewers; used by pypi.yml)
+#   * (optional) PyPI trusted publishing for BOTH projects (olcf and olcf-fabric): repository + workflow pypi.yml + environment pypi, then set the repository
+#     variable PUBLISH_PYPI=true
+#   * the release identity (GitHub owner/repository, CODEOWNERS, contacts) must be resolved: scripts/check_release_config.py runs in the build and fails the release
+#
+# The one-line installer URL is the release asset:  https://github.com/jddevtime/open-lakehouse-compute-fabric/releases/download/vX.Y.Z/install.sh
+#
+# Verify a download:
+#   cosign verify-blob --bundle olcf-X.Y.Z-py3-none-any.whl.sigstore.json \
+#     --certificate-identity-regexp '^https://github.com/jddevtime/open-lakehouse-compute-fabric/\.github/workflows/release\.yml@refs/tags/v' \
+#     --certificate-oidc-issuer https://token.actions.githubusercontent.com olcf-X.Y.Z-py3-none-any.whl
+#   sha256sum -c SHA256SUMS
+name: release
+
+on:
+  push:
+    tags: ["v[0-9]+.[0-9]+.[0-9]+", "v[0-9]+.[0-9]+.[0-9]+-*"]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Build and sign nothing; only run the build job (no release is created)"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+# The gates below are called workflows with their own groups (ci-gate-..., container-gate-..., security-gate-...); this group is distinct from all of them,
+# so the caller can neither cancel nor be blocked by a callee.
+concurrency:
+  group: ${{ github.workflow }}-run-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  UV_NO_PROGRESS: "1"
+
+jobs:
+  # ---- release gates: the same workflows as on pull requests, called as reusable workflows.  A tag build waits for all three.
+  verify:
+    name: gate / ci
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+
+  containers:
+    name: gate / container
+    uses: ./.github/workflows/container.yml
+    permissions:
+      contents: read
+
+  security:
+    name: gate / security
+    uses: ./.github/workflows/security.yml
+    permissions:
+      contents: read
+      security-events: write   # CodeQL uploads its results
+
+  build:
+    name: build + verify
+    needs: [verify, containers, security]
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with: {enable-cache: true}
+      - name: the tag must match the package version
+        id: v
+        run: |
+          pkg=$(python3 - <<'PY'
+          import re, tomllib, pathlib
+          print(tomllib.loads(pathlib.Path("pyproject.toml").read_text())["project"]["version"])
+          PY
+          )
+          echo "version=$pkg" >> "$GITHUB_OUTPUT"
+          if [ "${GITHUB_REF_TYPE}" = tag ]; then
+            [ "${GITHUB_REF_NAME}" = "v$pkg" ] || { echo "tag ${GITHUB_REF_NAME} does not match package version $pkg"; exit 1; }
+          fi
+      - name: build both distributions (olcf, olcf-fabric), run the gate, SBOMs, notices, checksums
+        # --require-identity: the release stops while owner/repository/contact placeholders remain (scripts/check_release_config.py)
+        run: bash scripts/build_release.sh --out dist --require-identity
+      - name: collect the installers and the chart next to the artifacts
+        run: |
+          cp scripts/install.sh scripts/install.ps1 scripts/uninstall.sh scripts/uninstall.ps1 scripts/make_offline_bundle.sh dist/
+          curl -fsSL https://get.helm.sh/helm-v3.16.2-linux-amd64.tar.gz | tar -xz -C /tmp linux-amd64/helm
+          /tmp/linux-amd64/helm package deploy/helm/olcf --version "${{ steps.v.outputs.version }}" --app-version "${{ steps.v.outputs.version }}" -d dist
+          (cd dist && rm -f SHA256SUMS && sha256sum -- * > /tmp/SHA256SUMS && mv /tmp/SHA256SUMS SHA256SUMS && sha256sum -c SHA256SUMS)
+      - uses: actions/upload-artifact@v4
+        with: {name: release-dist, path: dist, retention-days: 30, if-no-files-found: error}
+
+  sign:
+    name: sign (sigstore)
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v') && (github.event_name == 'push' || inputs.dry_run == false)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write          # keyless signing with the workflow's OIDC identity
+      attestations: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with: {name: release-dist, path: dist}
+      - uses: sigstore/cosign-installer@v3
+      - name: sign every artifact (keyless, transparency-log backed)
+        run: |
+          cd dist
+          for f in *.whl *.tar.gz *.tgz *.json *.md SHA256SUMS install.sh install.ps1 uninstall.sh uninstall.ps1 make_offline_bundle.sh; do
+            [ -f "$f" ] || continue
+            cosign sign-blob --yes --bundle "$f.sigstore.json" "$f"
+          done
+      - name: build provenance attestation
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            dist/*.whl
+            dist/*.tar.gz
+      - uses: actions/upload-artifact@v4
+        with: {name: release-signed, path: dist, retention-days: 30, if-no-files-found: error}
+
+  images:
+    name: container images (GHCR)
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v') && (github.event_name == 'push' || inputs.dry_run == false)
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    # Protected environment: with required reviewers configured, nothing is pushed to GHCR until a maintainer approves.  Without reviewers it does not block.
+    environment: release
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {image: olcf, dockerfile: deploy/Dockerfile}
+          - {image: olcf-worker, dockerfile: deploy/Dockerfile.worker}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: sigstore/cosign-installer@v3
+      - uses: docker/login-action@v3
+        with: {registry: ghcr.io, username: "${{ github.actor }}", password: "${{ secrets.GITHUB_TOKEN }}"}
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}
+          flavor: |
+            latest=false
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable=${{ !startsWith(github.ref_name, 'v0.') && !contains(github.ref_name, '-') }}
+      - id: push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          sbom: true
+          provenance: mode=max
+          cache-from: type=gha,scope=${{ matrix.image }}
+      - name: sign the image by digest (keyless)
+        env:
+          IMAGE: ${{ matrix.image }}
+          DIGEST: ${{ steps.push.outputs.digest }}
+        run: |
+          owner=$(printf '%s' "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')   # registry names are lower case
+          cosign sign --yes "ghcr.io/${owner}/${IMAGE}@${DIGEST}"
+
+  release:
+    name: GitHub release (draft)
+    needs: [build, sign, images]
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with: {name: release-signed, path: dist}
+      - name: release notes
+        run: |
+          cat > RELEASE_NOTES.md <<'NOTES'
+          ## OLCF @TAG@ (beta)
+
+          **Beta for evaluation on trusted infrastructure.** Compute is trusted-user compute: notebook and job code runs with the privileges of the worker's operating-system user (there is no OS sandbox between users' code), and Spark RPC authentication and encryption are not configured by OLCF, so keep the Spark ports on a private network.
+          Not yet verified against a live Microsoft Fabric tenant, Kubernetes with an enforcing CNI, a real Livy gateway, or Windows hosts; those integrations are experimental. The bundled runtime-signing key is a public development key, so a production installation must re-sign the runtime manifests with its own key before any runtime installs. Known gaps: [docs/development/release-readiness.md](https://github.com/@REPO@/blob/@TAG@/docs/development/release-readiness.md).
+
+          ### Install the exact wheel of this release
+
+          ```sh
+          curl -fsSL https://github.com/@REPO@/releases/download/@TAG@/install.sh | sh -s -- --wheel https://github.com/@REPO@/releases/download/@TAG@/olcf-@VERSION@-py3-none-any.whl
+          # or into an existing virtual environment:
+          python -m pip install "https://github.com/@REPO@/releases/download/@TAG@/olcf-@VERSION@-py3-none-any.whl"
+          # Microsoft Fabric notebook SDK (standard library only):
+          python -m pip install "https://github.com/@REPO@/releases/download/@TAG@/olcf_fabric-@VERSION@-py3-none-any.whl"
+          ```
+
+          Verify first: `sha256sum -c SHA256SUMS`; every file also has a sigstore bundle (`*.sigstore.json`), and verification commands are at the top of the release workflow.
+          The CycloneDX SBOMs are `olcf-*.cdx.json` and `olcf_fabric-*.cdx.json`; third-party licences are in `THIRD_PARTY_NOTICES.md`.
+          Container images: `ghcr.io/@OWNER@/olcf:@VERSION@` and `ghcr.io/@OWNER@/olcf-worker:@VERSION@` (multi-arch, signed, with SBOM and provenance).
+          NOTES
+          owner=$(printf '%s' "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')
+          sed -i -e "s|@TAG@|${GITHUB_REF_NAME}|g" -e "s|@VERSION@|${GITHUB_REF_NAME#v}|g" -e "s|@REPO@|${GITHUB_REPOSITORY}|g" -e "s|@OWNER@|${owner}|g" RELEASE_NOTES.md
+      - uses: softprops/action-gh-release@v2
+        with:
+          body_path: RELEASE_NOTES.md
+          generate_release_notes: true
+          # A maintainer reviews the draft and publishes it by hand; publishing it triggers pypi.yml.
+          draft: true
+          # every 0.x version is a prerelease (beta), and so is any tag with a hyphen (-rc.1)
+          prerelease: ${{ startsWith(github.ref_name, 'v0.') || contains(github.ref_name, '-') }}
+          fail_on_unmatched_files: true
+          files: dist/*

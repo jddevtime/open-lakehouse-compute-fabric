@@ -1,0 +1,52 @@
+{
+  "analyzer_version": "1.0.0",
+  "blocked": false,
+  "blockers": [],
+  "child_notebooks": [],
+  "counts": {
+    "compatibility-shim": 2,
+    "deterministic-rewrite": 0,
+    "fabric-only-fallback": 0,
+    "native-portable": 4,
+    "unsupported": 0,
+    "warning": 0
+  },
+  "data_references": {
+    "paths": [
+      [
+        "relative",
+        "Files/customers.csv"
+      ]
+    ],
+    "tables": [
+      [
+        "customers",
+        "catalog",
+        [
+          "read"
+        ]
+      ]
+    ]
+  },
+  "imports": [
+    "json",
+    "pyspark"
+  ],
+  "inlined_runs": [],
+  "packages": [],
+  "parameters": [],
+  "pip_requirements": [],
+  "rewrites": [],
+  "rule_counts": {
+    "FAB-IMP-BASELINE": 3,
+    "FAB-NBU-NOTEBOOK": 1,
+    "FAB-PATH-REL": 1,
+    "FAB-PY-UDF": 1
+  },
+  "ruleset_version": "1.0.0",
+  "secret_refs": [],
+  "shims_required": [
+    "notebook",
+    "paths"
+  ]
+}

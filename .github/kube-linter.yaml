@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Justin Dodrill
+checks:
+  addAllBuiltIn: false
+  # only the checks listed below: the default set also demands pod anti-affinity, which a one-node lab
+  # (two workers on one machine) cannot satisfy; HA placement is a values.yaml choice (workers.affinity)
+  doNotAutoAddDefaults: true
+  include:
+    - no-read-only-root-fs
+    - run-as-non-root
+    - privilege-escalation-container
+    - privileged-container
+    - host-network
+    - host-pid
+    - host-ipc
+    - docker-sock
+    - drop-net-raw-capability
+    - unset-cpu-requirements
+    - unset-memory-requirements
+    - latest-tag
+    - default-service-account
+    - env-var-secret
+    - sensitive-host-mounts

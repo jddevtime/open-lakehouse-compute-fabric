@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Justin Dodrill
+# Values used by CI (helm lint / template, kubeconform): a self-contained lab installation.
+database:
+  bundled:
+    enabled: true
+workers:
+  insecureInCluster: true

@@ -1,0 +1,36 @@
+{{/* SPDX-License-Identifier: Apache-2.0 */}}
+{{/* Copyright (c) 2026 Justin Dodrill */}}
+{{- if .Values.tests.enabled }}
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ include "olcf.fullname" . }}-test-health
+  labels:
+    {{- include "olcf.labels" . | nindent 4 }}
+    app.kubernetes.io/component: test
+  annotations:
+    helm.sh/hook: test
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  restartPolicy: Never
+  automountServiceAccountToken: false
+  {{- include "olcf.pullSecrets" . | nindent 2 }}
+  securityContext:
+    {{- toYaml .Values.podSecurityContext | nindent 4 }}
+  containers:
+    - name: health
+      image: {{ include "olcf.image" . | quote }}
+      imagePullPolicy: {{ .Values.image.pullPolicy }}
+      command:
+        - /opt/olcf/bin/python
+        - -c
+        - |
+          import sys, urllib.request
+          with urllib.request.urlopen("http://{{ include "olcf.fullname" . }}:{{ .Values.controlPlane.service.port }}/v1/health", timeout=10) as r:
+              sys.exit(0 if r.status == 200 else 1)
+      securityContext:
+        {{- toYaml .Values.containerSecurityContext | nindent 8 }}
+      resources:
+        requests: {cpu: 50m, memory: 64Mi}
+        limits: {memory: 256Mi}
+{{- end }}

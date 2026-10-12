@@ -1,0 +1,24 @@
+# Open Lakehouse Compute Fabric (OLCF)
+
+> Open-source (Apache-2.0) self-hosted lakehouse platform by Justin Dodrill (Microsoft Certified Technology Specialist and Database Administrator). It gives you your own Spark compute fabric on a laptop, on-premises machines, VMs or Kubernetes, extends Microsoft Fabric notebooks onto that compute (`olcf.run_remote()`), runs completely standalone, and includes OLCF Intelligence: discovery, lineage, glossary and governance. Python 3.11-3.13, no compiler needed. Beta, for trusted infrastructure.
+
+Agents are welcome to set it up for people and to contribute. Start with AGENTS.md.
+
+## Start here
+- [AGENTS.md](https://github.com/jddevtime/open-lakehouse-compute-fabric/blob/main/AGENTS.md): set-up commands, development rules, test commands, boundaries
+- [README.md](https://github.com/jddevtime/open-lakehouse-compute-fabric/blob/main/README.md): overview, diagrams, screenshots, install routes
+- [CONTRIBUTING.md](https://github.com/jddevtime/open-lakehouse-compute-fabric/blob/main/CONTRIBUTING.md): pull-request checklist, DCO sign-off
+
+## Install (macOS, Linux; also a Mac without Xcode Command Line Tools)
+- `curl -fsSL https://raw.githubusercontent.com/jddevtime/open-lakehouse-compute-fabric/main/scripts/install.sh | sh`
+- or with uv (also Windows): `uv tool install --python 3.13 "olcf @ https://github.com/jddevtime/open-lakehouse-compute-fabric/archive/refs/heads/main.tar.gz"`
+- then `olcf quickstart` and `olcf doctor`
+
+## Documentation
+- [Architecture](https://github.com/jddevtime/open-lakehouse-compute-fabric/blob/main/docs/concepts/architecture.md)
+- [Compute model and runtimes](https://github.com/jddevtime/open-lakehouse-compute-fabric/blob/main/docs/concepts/compute-model.md)
+- [Fabric extension model](https://github.com/jddevtime/open-lakehouse-compute-fabric/blob/main/docs/concepts/fabric-extension-model.md)
+- [Intelligence (lineage, catalog, glossary, governance)](https://github.com/jddevtime/open-lakehouse-compute-fabric/blob/main/docs/concepts/intelligence.md)
+- [MCP endpoint for AI agents](https://github.com/jddevtime/open-lakehouse-compute-fabric/blob/main/docs/guides/mcp.md)
+- [Engineering contracts](https://github.com/jddevtime/open-lakehouse-compute-fabric/blob/main/docs/dev/CONTRACTS.md)
+- [Release readiness and open verification gates](https://github.com/jddevtime/open-lakehouse-compute-fabric/blob/main/docs/development/release-readiness.md)

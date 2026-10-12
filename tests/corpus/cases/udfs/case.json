@@ -1,0 +1,12 @@
+{
+  "data_run": "notebook",
+  "description": "Python UDFs (decorator and registered for SQL), Fabric Git source format",
+  "engine": "spark",
+  "extra_lakehouses": [],
+  "name": "udfs",
+  "needs": "",
+  "parameters": {},
+  "primary_format": "fabricGitSource",
+  "standalone_engine": "spark",
+  "why": ""
+}

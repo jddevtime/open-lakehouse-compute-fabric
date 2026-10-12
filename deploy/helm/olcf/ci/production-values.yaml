@@ -1,0 +1,37 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Justin Dodrill
+# Values used by CI: a production-shaped installation (external PostgreSQL, ingress with TLS, several replicas, Kubernetes compute provider).
+controlPlane:
+  replicaCount: 3
+  publicUrl: https://olcf.example.com
+  podDisruptionBudget: {enabled: true, minAvailable: 2}
+persistence:
+  accessMode: ReadWriteMany
+  storageClass: nfs-client
+database:
+  external:
+    url: postgresql+psycopg://olcf:change-me@pg.example.com:5432/olcf
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: 512m
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+  hosts:
+    - host: olcf.example.com
+      paths:
+        - {path: /, pathType: Prefix}
+  tls:
+    - secretName: olcf-tls
+      hosts: [olcf.example.com]
+networkPolicy:
+  egressAllowAll: false
+  allowIngressFromAnywhere: false
+  ingressFrom:
+    - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: ingress-nginx}}
+workers:
+  replicas: 3
+  labels: zone=a,gpu=false
+kubernetesProvider:
+  enabled: true
+  namespace: olcf-compute

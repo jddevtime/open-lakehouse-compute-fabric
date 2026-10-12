@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://olcf.dev/schemas/runtime-manifest-1.json",
+  "title": "OLCF runtime manifest",
+  "description": "Signed description of one immutable Spark runtime. Author: Justin Dodrill. SPDX-License-Identifier: Apache-2.0",
+  "type": "object",
+  "required": ["schema", "id", "version", "family", "spark", "scala", "java", "python", "packages"],
+  "additionalProperties": true,
+  "properties": {
+    "schema": {"const": "olcf.runtime.manifest/1"},
+    "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{1,62}$"},
+    "version": {"type": "string", "minLength": 1},
+    "family": {"type": "string", "enum": ["fabric-2.0-compatible", "fabric-1.3-compatible", "olcf-native"]},
+    "title": {"type": "string"},
+    "description": {"type": "string"},
+    "spark": {
+      "type": "object",
+      "required": ["version"],
+      "properties": {"version": {"type": "string"}, "hadoop": {"type": ["string", "null"]}}
+    },
+    "delta": {"type": ["object", "null"], "required": ["version"], "properties": {"version": {"type": "string"}}},
+    "iceberg": {"type": ["object", "null"], "required": ["version"], "properties": {"version": {"type": "string"}}},
+    "scala": {"type": "string", "pattern": "^2\\.1[0-9]$|^3\\.[0-9]+$"},
+    "java": {
+      "type": "object",
+      "required": ["major"],
+      "properties": {
+        "major": {"type": "integer", "minimum": 8},
+        "supported": {"type": "array", "items": {"type": "integer"}, "minItems": 1},
+        "temurin_release": {"type": ["string", "null"]}
+      }
+    },
+    "python": {
+      "type": "object",
+      "required": ["version"],
+      "properties": {"version": {"type": "string", "pattern": "^3\\.[0-9]+$"}}
+    },
+    "os": {"type": "array", "items": {"type": "string", "enum": ["linux", "macos", "windows"]}, "minItems": 1},
+    "arch": {"type": "array", "items": {"type": "string", "enum": ["x86_64", "aarch64"]}, "minItems": 1},
+    "build_packages": {"$ref": "#/$defs/pins"},
+    "packages": {"$ref": "#/$defs/pins"},
+    "jars": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {"type": "string", "pattern": "^[^:\\s]+:[^:\\s]+(:[^:\\s]+){1,3}$"},
+          {
+            "type": "object",
+            "required": ["coordinate"],
+            "additionalProperties": false,
+            "properties": {
+              "coordinate": {"type": "string", "pattern": "^[^:\\s]+:[^:\\s]+(:[^:\\s]+){1,3}$"},
+              "group": {"type": "string"},
+              "optional": {"type": "boolean"},
+              "exclusions": {"type": "array", "items": {"type": "string"}}
+            }
+          }
+        ]
+      }
+    },
+    "provided_jars": {"type": "array", "items": {"type": "string"}},
+    "spark_conf_defaults": {"type": "object", "additionalProperties": {"type": ["string", "number", "boolean"]}},
+    "approved_spark_conf": {"type": "array", "items": {"type": "string"}},
+    "verify": {
+      "type": "object",
+      "properties": {"smoke": {"enum": ["spark", "import", "none"]}, "imports": {"type": "array", "items": {"type": "string"}}}
+    },
+    "signature": {
+      "type": "object",
+      "required": ["alg", "key_id", "value"],
+      "properties": {
+        "alg": {"const": "ed25519"},
+        "key_id": {"type": "string"},
+        "value": {"type": "string", "pattern": "^[A-Za-z0-9+/=]+$"},
+        "signed_at": {"type": "string"}
+      }
+    }
+  },
+  "$defs": {
+    "pins": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "version", "hashes"],
+        "additionalProperties": false,
+        "properties": {
+          "name": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"},
+          "version": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9.!+_-]*$"},
+          "hashes": {"type": "array", "items": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "minItems": 1},
+          "marker": {"type": ["string", "null"]}
+        }
+      }
+    }
+  }
+}

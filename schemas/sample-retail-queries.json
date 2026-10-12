@@ -1,0 +1,121 @@
+[
+  {
+    "name": "Revenue by month",
+    "description": "Monthly revenue, profit and orders for one year.",
+    "definition": {
+      "sql": "SELECT d.month, d.month_name, round(sum(f.net_amount), 2) AS revenue, round(sum(f.profit), 2) AS profit,\n       count(DISTINCT f.order_id) AS orders\nFROM retail_lakehouse.fact_sales f\nJOIN retail_lakehouse.dim_date d ON d.date_key = f.date_key\nWHERE d.year = :year\nGROUP BY d.month, d.month_name\nORDER BY d.month",
+      "engine": "duckdb",
+      "lakehouse_id": "<lakehouse-id>",
+      "parameters": [
+        {
+          "name": "year",
+          "type": "int",
+          "default": 2025
+        }
+      ]
+    }
+  },
+  {
+    "name": "Top products in a category",
+    "description": "Best selling products of a category by revenue, with margin.",
+    "definition": {
+      "sql": "SELECT p.product_name, p.brand, sum(f.quantity) AS units, round(sum(f.net_amount), 2) AS revenue,\n       round(100.0 * sum(f.profit) / sum(f.net_amount), 1) AS margin_pct\nFROM retail_lakehouse.fact_sales f\nJOIN retail_lakehouse.dim_product p ON p.product_id = f.product_id\nWHERE p.category = :category\nGROUP BY p.product_name, p.brand\nORDER BY revenue DESC\nLIMIT :top_n",
+      "engine": "duckdb",
+      "lakehouse_id": "<lakehouse-id>",
+      "parameters": [
+        {
+          "name": "category",
+          "type": "string",
+          "default": "Electronics"
+        },
+        {
+          "name": "top_n",
+          "type": "int",
+          "default": 10
+        }
+      ]
+    }
+  },
+  {
+    "name": "Customer value segments",
+    "description": "Customers by lifetime-value segment and customer segment, from the gold_customer_ltv table.",
+    "definition": {
+      "sql": "SELECT l.ltv_segment, c.segment AS customer_segment, count(*) AS customers,\n       round(avg(l.lifetime_revenue), 2) AS avg_lifetime_revenue, round(avg(l.avg_order_value), 2) AS avg_order_value, round(avg(l.recency_days), 0) AS avg_recency_days\nFROM retail_lakehouse.gold_customer_ltv l\nJOIN retail_lakehouse.dim_customer c ON c.customer_id = l.customer_id\nGROUP BY l.ltv_segment, c.segment\nORDER BY l.ltv_segment, c.segment",
+      "engine": "duckdb",
+      "lakehouse_id": "<lakehouse-id>",
+      "parameters": []
+    }
+  },
+  {
+    "name": "Daily sales, last N days",
+    "description": "Net revenue and orders per day for the most recent days in the data.",
+    "definition": {
+      "sql": "SELECT sale_date, orders, net_revenue, profit\nFROM retail_lakehouse.gold_daily_sales\nWHERE sale_date > (SELECT max(sale_date) FROM retail_lakehouse.gold_daily_sales) - :days\nORDER BY sale_date",
+      "engine": "duckdb",
+      "lakehouse_id": "<lakehouse-id>",
+      "parameters": [
+        {
+          "name": "days",
+          "type": "int",
+          "default": 30
+        }
+      ]
+    }
+  },
+  {
+    "name": "Web funnel by device",
+    "description": "Sessions that reached each funnel step, by device, with the conversion rate.",
+    "definition": {
+      "sql": "SELECT device, sessions, carts, checkouts, purchases, round(100.0 * purchases / sessions, 2) AS conversion_pct\nFROM (\n  SELECT device, count(DISTINCT session_id) AS sessions,\n         count(DISTINCT CASE WHEN event_type = 'add_to_cart' THEN session_id END) AS carts,\n         count(DISTINCT CASE WHEN event_type = 'checkout_start' THEN session_id END) AS checkouts,\n         count(DISTINCT CASE WHEN event_type = 'purchase' THEN session_id END) AS purchases\n  FROM retail_lakehouse.fact_web_events\n  GROUP BY device)\nORDER BY sessions DESC",
+      "engine": "duckdb",
+      "lakehouse_id": "<lakehouse-id>",
+      "parameters": []
+    }
+  },
+  {
+    "name": "Store performance ranking",
+    "description": "Revenue and margin per store, ranked; optionally limited to one region.",
+    "definition": {
+      "sql": "SELECT rank() OVER (ORDER BY sum(f.net_amount) DESC) AS rank, s.store_name, s.region, s.format,\n       round(sum(f.net_amount), 2) AS revenue, round(100.0 * sum(f.profit) / sum(f.net_amount), 1) AS margin_pct\nFROM retail_lakehouse.fact_sales f\nJOIN retail_lakehouse.dim_store s ON s.store_id = f.store_id\nWHERE s.region = coalesce(:region, s.region)\nGROUP BY s.store_name, s.region, s.format\nORDER BY rank",
+      "engine": "duckdb",
+      "lakehouse_id": "<lakehouse-id>",
+      "parameters": [
+        {
+          "name": "region",
+          "type": "string",
+          "default": null
+        }
+      ]
+    }
+  },
+  {
+    "name": "Channel mix by quarter",
+    "description": "Revenue per sales channel and quarter with each channel's share of the quarter.",
+    "definition": {
+      "sql": "SELECT d.year, d.quarter, f.channel, round(sum(f.net_amount), 2) AS revenue,\n       round(100.0 * sum(f.net_amount) / sum(sum(f.net_amount)) OVER (PARTITION BY d.year, d.quarter), 1) AS share_pct\nFROM retail_lakehouse.fact_sales f\nJOIN retail_lakehouse.dim_date d ON d.date_key = f.date_key\nGROUP BY d.year, d.quarter, f.channel\nORDER BY d.year, d.quarter, f.channel",
+      "engine": "duckdb",
+      "lakehouse_id": "<lakehouse-id>",
+      "parameters": []
+    }
+  },
+  {
+    "name": "Discount impact on margin",
+    "description": "How deeper discounts change units, revenue and margin.",
+    "definition": {
+      "sql": "SELECT discount_pct, count(*) AS lines, sum(quantity) AS units, round(sum(net_amount), 2) AS revenue,\n       round(100.0 * sum(profit) / sum(net_amount), 1) AS margin_pct\nFROM retail_lakehouse.fact_sales\nGROUP BY discount_pct\nORDER BY discount_pct",
+      "engine": "duckdb",
+      "lakehouse_id": "<lakehouse-id>",
+      "parameters": []
+    }
+  },
+  {
+    "name": "Raw files reconcile with the table",
+    "description": "Compares the raw CSV export in Files/ with the fact_sales Delta table.",
+    "definition": {
+      "sql": "SELECT (SELECT count(*) FROM read_csv('Files/raw/sales/*.csv')) AS csv_lines,\n       (SELECT count(*) FROM retail_lakehouse.fact_sales) AS table_lines,\n       (SELECT round(sum(net_amount), 2) FROM read_csv('Files/raw/sales/*.csv')) AS csv_revenue,\n       (SELECT round(sum(net_amount), 2) FROM retail_lakehouse.fact_sales) AS table_revenue",
+      "engine": "duckdb",
+      "lakehouse_id": "<lakehouse-id>",
+      "parameters": []
+    }
+  }
+]

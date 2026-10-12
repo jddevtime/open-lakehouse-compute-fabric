@@ -1,0 +1,29 @@
+{{/* SPDX-License-Identifier: Apache-2.0 */}}
+{{/* Copyright (c) 2026 Justin Dodrill */}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "olcf.fullname" . }}-config
+  labels:
+    {{- include "olcf.labels" . | nindent 4 }}
+data:
+  OLCF_ENVIRONMENT: "production"
+  OLCF_LOG_JSON: "true"
+  OLCF_LOG_LEVEL: {{ .Values.controlPlane.logLevel | quote }}
+  OLCF_PORT: {{ .Values.controlPlane.service.port | quote }}
+  OLCF_BIND_HOST: "0.0.0.0"
+  OLCF_SERVER__TRUSTED_PROXIES: {{ .Values.controlPlane.trustedProxies | quote }}
+  OLCF_COMPUTE__EMBEDDED_WORKER: {{ .Values.controlPlane.embeddedWorker | quote }}
+  # Spark ports: the control plane allocates from exactly the ranges the NetworkPolicy opens (values: spark.ports)
+  OLCF_COMPUTE__SPARK_MASTER_PORT_BASE: {{ .Values.spark.ports.masterRpc.start | quote }}
+  OLCF_COMPUTE__SPARK_MASTER_PORT_SPAN: {{ add1 (sub .Values.spark.ports.masterRpc.end .Values.spark.ports.masterRpc.start) | quote }}
+  OLCF_COMPUTE__SPARK_MASTER_UI_PORT_BASE: {{ .Values.spark.ports.masterUi.start | quote }}
+  OLCF_COMPUTE__SPARK_MASTER_UI_PORT_SPAN: {{ add1 (sub .Values.spark.ports.masterUi.end .Values.spark.ports.masterUi.start) | quote }}
+  OLCF_COMPUTE__WORKER_PORT_RANGE: {{ printf "[%v,%v]" .Values.spark.ports.workerRpc.start .Values.spark.ports.workerRpc.end | quote }}
+  OLCF_COMPUTE__WORKER_UI_PORT_RANGE: {{ printf "[%v,%v]" .Values.spark.ports.workerUi.start .Values.spark.ports.workerUi.end | quote }}
+  OLCF_COMPUTE__DRIVER_UI_PORT_RANGE: {{ printf "[%v,%v]" .Values.spark.ports.driverUi.start .Values.spark.ports.driverUi.end | quote }}
+  OLCF_COMPUTE__DRIVER_PORT_RANGE: {{ printf "[%v,%v]" .Values.spark.ports.driver.start .Values.spark.ports.driver.end | quote }}
+  OLCF_COMPUTE__BLOCK_MANAGER_PORT_RANGE: {{ printf "[%v,%v]" .Values.spark.ports.blockManager.start .Values.spark.ports.blockManager.end | quote }}
+  {{- if .Values.controlPlane.publicUrl }}
+  OLCF_PUBLIC_URL: {{ .Values.controlPlane.publicUrl | quote }}
+  {{- end }}

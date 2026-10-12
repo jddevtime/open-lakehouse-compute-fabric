@@ -1,0 +1,19 @@
+table Product
+
+	column ProductKey
+		dataType: int64
+		sourceColumn: product_id
+
+	column Category
+		dataType: string
+		sourceColumn: category
+
+	column UnitCost
+		dataType: decimal
+		sourceColumn: unit_cost
+
+	partition Product = entity
+		mode: directLake
+		entityName: dim_product
+		schemaName: dbo
+		expressionSource: DatabaseQuery

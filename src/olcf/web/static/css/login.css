@@ -1,0 +1,21 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+/* Copyright (c) 2026 Justin Dodrill */
+.login { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(380px, 0.9fr); min-height: 100vh; background: var(--bg); }
+.login-art-panel { background: radial-gradient(900px 500px at 20% 10%, #16405a 0%, transparent 60%), linear-gradient(160deg, #0d2231 0%, #08161f 100%); color: #cfe0ec; padding: 40px 48px; display: flex; flex-direction: column; justify-content: space-between; position: relative; overflow: hidden; }
+.login-brand { display: flex; align-items: center; gap: 12px; color: #fff; }
+.login-brand b { font-size: 20px; letter-spacing: 0.02em; display: block; line-height: 1.1; }
+.login-brand span { font-size: 12px; opacity: 0.75; }
+.login-art { width: 100%; max-width: 760px; height: auto; margin: 24px auto; }
+.login-art line { stroke: rgba(143, 176, 255, 0.22); stroke-width: 1; }
+.login-art .ring { fill: rgba(143, 176, 255, 0.06); stroke: rgba(143, 176, 255, 0.28); }
+.login-art .dot.pulse { animation: dot-pulse 3.6s ease-in-out infinite; }
+@keyframes dot-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+.login-copy h2 { color: #fff; font-size: 30px; line-height: 1.15; letter-spacing: -0.02em; max-width: 18ch; }
+.login-copy p { color: #a9bfce; margin-top: 12px; max-width: 46ch; font-size: 15px; }
+.login-form-panel { display: grid; place-items: center; padding: 32px; }
+.login-card { width: min(400px, 100%); }
+.login-card h1 { font-size: 28px; }
+.login-card .w-full { width: 100%; }
+.login-or { display: flex; align-items: center; gap: 12px; margin: 18px 0 12px; color: var(--ink-3); font-size: var(--fs-xs); }
+.login-or::before, .login-or::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+@media (max-width: 900px) { .login { grid-template-columns: 1fr; } .login-art-panel { display: none; } }

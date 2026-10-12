@@ -1,0 +1,96 @@
+{{/* SPDX-License-Identifier: Apache-2.0 */}}
+{{/* Copyright (c) 2026 Justin Dodrill */}}
+{{- if .Values.database.bundled.enabled }}
+# Single-pod PostgreSQL for demos and tests.  Production: use a managed or operator-run PostgreSQL via database.external.*.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "olcf.fullname" . }}-postgres
+  labels:
+    {{- include "olcf.labels" . | nindent 4 }}
+    app.kubernetes.io/component: postgres
+spec:
+  clusterIP: None
+  ports:
+    - {name: postgres, port: 5432, targetPort: postgres}
+  selector:
+    {{- include "olcf.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: postgres
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "olcf.fullname" . }}-postgres
+  labels:
+    {{- include "olcf.labels" . | nindent 4 }}
+    app.kubernetes.io/component: postgres
+spec:
+  serviceName: {{ include "olcf.fullname" . }}-postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "olcf.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: postgres
+  template:
+    metadata:
+      labels:
+        {{- include "olcf.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: postgres
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 70                    # the "postgres" user of the alpine image
+        runAsGroup: 70
+        fsGroup: 70
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: postgres
+          image: {{ .Values.database.bundled.image | quote }}
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          ports:
+            - {name: postgres, containerPort: 5432}
+          env:
+            - {name: POSTGRES_USER, value: olcf}
+            - {name: POSTGRES_DB, value: olcf}
+            - {name: PGDATA, value: /var/lib/postgresql/data/pgdata}
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "olcf.dbSecretName" . }}
+                  key: postgres-password
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "olcf", "-d", "olcf"]
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", "olcf", "-d", "olcf"]
+            periodSeconds: 30
+            failureThreshold: 6
+          resources:
+            requests: {cpu: 250m, memory: 512Mi}
+            limits: {memory: 2Gi}
+          volumeMounts:
+            - {name: pgdata, mountPath: /var/lib/postgresql/data}
+            - {name: run, mountPath: /var/run/postgresql}
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - {name: run, emptyDir: {}}
+        - {name: tmp, emptyDir: {}}
+  volumeClaimTemplates:
+    - metadata:
+        name: pgdata
+      spec:
+        accessModes: [ReadWriteOnce]
+        {{- if .Values.database.bundled.storageClass }}
+        storageClassName: {{ .Values.database.bundled.storageClass | quote }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.database.bundled.size }}
+{{- end }}

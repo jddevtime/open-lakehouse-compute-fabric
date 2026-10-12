@@ -1,0 +1,15 @@
+olcf-fabric (Open Lakehouse Compute Fabric - Fabric SDK)
+Copyright 2026 Justin Dodrill
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+olcf-fabric is part of Open Lakehouse Compute Fabric (OLCF), an independent
+project. It is not affiliated with, sponsored by or endorsed by Microsoft
+Corporation, the Apache Software Foundation, the Linux Foundation / Delta Lake
+project, or any other owner of the product and service names it interoperates
+with.
+
+Third-party software
+--------------------
+This package uses only the Python standard library and bundles no third-party
+software.

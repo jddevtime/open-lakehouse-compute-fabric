@@ -1,0 +1,14 @@
+{
+  "data_run": "notebook",
+  "description": "%%sql cells, temp views, CTEs, window SQL and spark.sql with a parameter",
+  "engine": "spark",
+  "extra_lakehouses": [],
+  "name": "spark_sql",
+  "needs": "",
+  "parameters": {
+    "country": "US"
+  },
+  "primary_format": "ipynb",
+  "standalone_engine": "spark",
+  "why": ""
+}

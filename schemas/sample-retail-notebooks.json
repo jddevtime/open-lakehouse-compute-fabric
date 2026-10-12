@@ -1,0 +1,397 @@
+[
+  {
+    "name": "00_README",
+    "description": "Tour of the sample retail workspace.",
+    "tags": [
+      "sample",
+      "retail",
+      "docs"
+    ],
+    "definition": {
+      "nbformat": {
+        "nbformat": 4,
+        "nbformat_minor": 5,
+        "metadata": {
+          "kernelspec": {
+            "name": "python3",
+            "display_name": "Python 3 (ipykernel)",
+            "language": "python"
+          },
+          "language_info": {
+            "name": "python"
+          },
+          "olcf": {
+            "sample": "Sample Retail",
+            "kernel": "none"
+          }
+        },
+        "cells": [
+          {
+            "id": "readme-title",
+            "cell_type": "markdown",
+            "source": "# Sample Retail\n\nA synthetic retail company with three years of trading (2023-01-01 to 2025-12-31); nothing here is real data. The workspace was created by\n*Install sample* and can be re-installed at any time (it is idempotent; use *reinstall* to restore the original data).",
+            "metadata": {}
+          },
+          {
+            "id": "readme-tables",
+            "cell_type": "markdown",
+            "source": "            ## The `retail_lakehouse` lakehouse\n\n            | table | layer | description |\n            |---|---|---|\n            | `dim_customer` | silver | Customers of the retail company (synthetic people; no real personal data). |\n| `dim_product` | silver | Products with category hierarchy, cost and list price. |\n| `dim_store` | silver | Physical stores plus the online store (format = Online). |\n| `dim_date` | silver | Calendar dimension covering the whole dataset period (three years). |\n| `fact_sales` | silver | One row per order line. Partitioned by year and month of the order date. |\n| `fact_web_events` | silver | Web and mobile clickstream events (sessions, page views, funnel steps). |\n| `gold_daily_sales` | gold | Daily sales KPIs, built from fact_sales by notebook 01_Retail_Medallion_ETL. |\n| `gold_category_summary` | gold | Revenue, profit and share per product category and year. |\n| `gold_customer_ltv` | gold | Lifetime value and recency per customer (as of the end of the dataset). |\n\n            Raw CSV exports live below `Files/raw/` (customers, products, stores and one `sales_<year>.csv` per year).",
+            "metadata": {}
+          },
+          {
+            "id": "readme-sql",
+            "cell_type": "markdown",
+            "source": "## Query it\n\n* **SQL editor** - pick `retail_lakehouse` and run, for example, `SELECT * FROM retail_lakehouse.gold_daily_sales ORDER BY sale_date DESC LIMIT 10`.\n  The saved queries in this workspace take typed parameters (`:year`, `:category`, `:days` ...).\n* **Report** - open *Retail Sales Overview* and change the period or the category filter.\n* **MCP** - connect Claude Desktop (see the MCP guide) and ask \"which category grew fastest in 2025?\"; the agent uses `describe_table` and `run_sql`.",
+            "metadata": {}
+          },
+          {
+            "id": "readme-notebooks",
+            "cell_type": "markdown",
+            "source": "## Notebooks\n\n1. `01_Retail_Medallion_ETL` - PySpark + Delta Lake: bronze CSV to a silver table, then gold aggregates with Spark SQL and a Delta `MERGE`. Needs a Spark runtime.\n   Parameters: `run_date` (the as-of date) and `min_amount` (drop smaller order lines).\n2. `02_Retail_Explore_Python` - the same data with `deltalake`, DuckDB, pandas and matplotlib. No Spark required.",
+            "metadata": {}
+          },
+          {
+            "id": "readme-model",
+            "cell_type": "markdown",
+            "source": "## Data model\n\n`fact_sales` (one row per order line, partitioned by year and month) joins to `dim_customer`, `dim_product`, `dim_store` and `dim_date`.\n`fact_web_events` is the clickstream (page views, searches, cart and checkout steps, purchases). The `gold_*` tables are aggregates of `fact_sales`\nand are what the report reads. Lineage between them is recorded in the catalog.",
+            "metadata": {}
+          }
+        ]
+      },
+      "settings": {
+        "engine": "python",
+        "default_lakehouse": {
+          "name": "retail_lakehouse"
+        }
+      }
+    }
+  },
+  {
+    "name": "01_Retail_Medallion_ETL",
+    "description": "PySpark + Delta medallion pipeline: bronze CSV to silver table to gold aggregates (Spark SQL, MERGE, DESCRIBE HISTORY).",
+    "tags": [
+      "sample",
+      "retail",
+      "spark",
+      "etl"
+    ],
+    "definition": {
+      "nbformat": {
+        "nbformat": 4,
+        "nbformat_minor": 5,
+        "metadata": {
+          "kernelspec": {
+            "name": "python3",
+            "display_name": "Python 3 (ipykernel)",
+            "language": "python"
+          },
+          "language_info": {
+            "name": "python"
+          },
+          "olcf": {
+            "sample": "Sample Retail",
+            "kernel": "pyspark"
+          }
+        },
+        "cells": [
+          {
+            "id": "etl-title",
+            "cell_type": "markdown",
+            "source": "# Retail medallion ETL (PySpark + Delta)\n\n**bronze** raw CSV (`Files/raw`) -> **silver** `silver_sales_enriched` (typed, filtered, enriched, partitioned by year and month) -> **gold** daily, category and customer\naggregates. The default lakehouse of this notebook is `retail_lakehouse`; table names are relative to it. Run it with the Spark runtime of the compute fabric.",
+            "metadata": {}
+          },
+          {
+            "id": "etl-params-md",
+            "cell_type": "markdown",
+            "source": "## Parameters\n\nThe next cell is tagged `parameters`: a job run or a pipeline activity can override these values.",
+            "metadata": {}
+          },
+          {
+            "id": "etl-params",
+            "cell_type": "code",
+            "metadata": {
+              "tags": [
+                "parameters"
+              ]
+            },
+            "execution_count": null,
+            "source": "run_date = \"2025-12-31\"   # process order lines up to and including this date (also the as-of date of recency_days)\nmin_amount = 0.0          # drop order lines whose net_amount is below this value",
+            "outputs": []
+          },
+          {
+            "id": "etl-setup",
+            "cell_type": "code",
+            "metadata": {},
+            "execution_count": null,
+            "source": "from pyspark.sql import functions as F\n\nprint(f\"Spark {spark.version}; run_date={run_date}; min_amount={min_amount}\")\nspark.conf.set(\"spark.sql.sources.partitionOverwriteMode\", \"dynamic\")",
+            "outputs": []
+          },
+          {
+            "id": "etl-bronze-md",
+            "cell_type": "markdown",
+            "source": "## Bronze: read the raw files\n\nCSV exports as delivered by the source systems; types are inferred, nothing is cleaned yet.",
+            "metadata": {}
+          },
+          {
+            "id": "etl-bronze",
+            "cell_type": "code",
+            "metadata": {},
+            "execution_count": null,
+            "source": "def read_csv(path):\n    return spark.read.option(\"header\", True).option(\"inferSchema\", True).csv(path)\n\nbronze_sales = read_csv(\"Files/raw/sales/\")\nprint(\"bronze sales lines:\", bronze_sales.count())\nbronze_sales.printSchema()",
+            "outputs": []
+          },
+          {
+            "id": "etl-silver-md",
+            "cell_type": "markdown",
+            "source": "## Silver: `silver_sales_enriched`\n\n* cast the date and timestamp columns, derive the partition columns `year` and `month`\n* apply the `run_date` and `min_amount` parameters, drop duplicate lines\n* enrich with customer, product and store attributes from the conformed dimension tables",
+            "metadata": {}
+          },
+          {
+            "id": "etl-silver",
+            "cell_type": "code",
+            "metadata": {},
+            "execution_count": null,
+            "source": "customers = spark.table(\"dim_customer\").select(\"customer_id\", F.col(\"segment\").alias(\"customer_segment\"), \"loyalty_tier\")\nproducts = spark.table(\"dim_product\").select(\"product_id\", \"product_name\", \"category\", \"subcategory\", \"brand\")\nstores = spark.table(\"dim_store\").select(\"store_id\", \"store_name\", \"region\")\n\nsilver = (\n    bronze_sales\n    .withColumn(\"order_date\", F.to_date(\"order_date\"))\n    .withColumn(\"order_ts\", F.to_timestamp(\"order_ts\"))\n    .withColumn(\"year\", F.year(\"order_date\").cast(\"int\"))\n    .withColumn(\"month\", F.month(\"order_date\").cast(\"int\"))\n    .filter((F.col(\"order_date\") <= F.lit(run_date).cast(\"date\")) & (F.col(\"net_amount\") >= F.lit(float(min_amount))))\n    .dropDuplicates([\"sale_id\"])\n    .join(customers, \"customer_id\", \"left\")\n    .join(products, \"product_id\", \"left\")\n    .join(stores, \"store_id\", \"left\")\n)\n\n(silver.write.format(\"delta\").mode(\"overwrite\").option(\"overwriteSchema\", \"true\")\n       .partitionBy(\"year\", \"month\").saveAsTable(\"silver_sales_enriched\"))\nprint(\"silver rows:\", spark.table(\"silver_sales_enriched\").count())",
+            "outputs": []
+          },
+          {
+            "id": "etl-gold-md",
+            "cell_type": "markdown",
+            "source": "## Gold: aggregates with Spark SQL\n\nThe queries are plain SQL templates; `{fact}` and `{product}` are the table names and `{as_of}` the run date. `gold_category_summary` and `gold_customer_ltv`\nare rebuilt; `gold_daily_sales` is upserted with a Delta `MERGE` so that re-running a window only touches the days it contains.",
+            "metadata": {}
+          },
+          {
+            "id": "etl-gold-sql",
+            "cell_type": "code",
+            "metadata": {},
+            "execution_count": null,
+            "source": "GOLD_SQL = {\n    \"gold_daily_sales\": \"\"\"\nSELECT order_date AS sale_date,\n       CAST(count(DISTINCT order_id) AS BIGINT) AS orders,\n       CAST(sum(quantity) AS BIGINT) AS units,\n       CAST(count(DISTINCT customer_id) AS BIGINT) AS customers,\n       round(sum(gross_amount), 2) AS gross_revenue,\n       round(sum(net_amount), 2) AS net_revenue,\n       round(sum(profit), 2) AS profit,\n       round(sum(net_amount) / count(DISTINCT order_id), 2) AS avg_order_value\nFROM {fact}\nGROUP BY order_date\n\"\"\",\n    \"gold_category_summary\": \"\"\"\nWITH by_cat AS (\n  SELECT p.category AS category, CAST(f.year AS INT) AS year,\n         CAST(count(DISTINCT f.order_id) AS BIGINT) AS orders, CAST(sum(f.quantity) AS BIGINT) AS units,\n         round(sum(f.net_amount), 2) AS net_revenue, round(sum(f.profit), 2) AS profit\n  FROM {fact} f JOIN {product} p ON p.product_id = f.product_id\n  GROUP BY p.category, f.year)\nSELECT category, year, orders, units, net_revenue, profit,\n       round(100.0 * profit / net_revenue, 2) AS margin_pct,\n       round(100.0 * net_revenue / sum(net_revenue) OVER (PARTITION BY year), 2) AS revenue_share_pct,\n       CAST(rank() OVER (PARTITION BY year ORDER BY net_revenue DESC) AS INT) AS revenue_rank\nFROM by_cat\n\"\"\",\n    \"gold_customer_ltv\": \"\"\"\nWITH per_customer AS (\n  SELECT customer_id, min(order_date) AS first_order_date, max(order_date) AS last_order_date,\n         CAST(count(DISTINCT order_id) AS BIGINT) AS orders, CAST(sum(quantity) AS BIGINT) AS units,\n         round(sum(net_amount), 2) AS lifetime_revenue, round(sum(profit), 2) AS lifetime_profit\n  FROM {fact} GROUP BY customer_id),\ntiles AS (\n  SELECT *, ntile(10) OVER (ORDER BY lifetime_revenue DESC, customer_id) AS decile FROM per_customer)\nSELECT customer_id, first_order_date, last_order_date, orders, units, lifetime_revenue, lifetime_profit,\n       round(lifetime_revenue / orders, 2) AS avg_order_value,\n       CAST(datediff(DATE '{as_of}', last_order_date) AS INT) AS recency_days,\n       CASE WHEN decile = 1 THEN 'Top 10%' WHEN decile <= 5 THEN 'Upper 40%' ELSE 'Lower 50%' END AS ltv_segment\nFROM tiles\n\"\"\",\n}\n\n\ndef gold(name):\n    return spark.sql(GOLD_SQL[name].format(fact=\"silver_sales_enriched\", product=\"dim_product\", as_of=run_date))",
+            "outputs": []
+          },
+          {
+            "id": "etl-gold-rebuild",
+            "cell_type": "code",
+            "metadata": {},
+            "execution_count": null,
+            "source": "for name in (\"gold_category_summary\", \"gold_customer_ltv\"):\n    (gold(name).write.format(\"delta\").mode(\"overwrite\").option(\"overwriteSchema\", \"true\").saveAsTable(name))\n    print(name, spark.table(name).count(), \"rows\")",
+            "outputs": []
+          },
+          {
+            "id": "etl-gold-merge",
+            "cell_type": "code",
+            "metadata": {},
+            "execution_count": null,
+            "source": "daily = gold(\"gold_daily_sales\")\nif spark.catalog.tableExists(\"gold_daily_sales\"):\n    daily.createOrReplaceTempView(\"daily_updates\")\n    spark.sql(\"\"\"\n        MERGE INTO gold_daily_sales AS t\n        USING daily_updates AS s\n        ON t.sale_date = s.sale_date\n        WHEN MATCHED THEN UPDATE SET *\n        WHEN NOT MATCHED THEN INSERT *\n    \"\"\")\nelse:\n    daily.write.format(\"delta\").saveAsTable(\"gold_daily_sales\")\nprint(\"gold_daily_sales:\", spark.table(\"gold_daily_sales\").count(), \"rows\")",
+            "outputs": []
+          },
+          {
+            "id": "etl-history-md",
+            "cell_type": "markdown",
+            "source": "## Table history\n\nEvery write above is a commit in the Delta log: version, operation and metrics.",
+            "metadata": {}
+          },
+          {
+            "id": "etl-history",
+            "cell_type": "code",
+            "metadata": {},
+            "execution_count": null,
+            "source": "for table in (\"gold_daily_sales\", \"gold_category_summary\", \"gold_customer_ltv\"):\n    print(table)\n    spark.sql(f\"DESCRIBE HISTORY {table}\").select(\"version\", \"timestamp\", \"operation\", \"operationMetrics\").show(5, truncate=80)",
+            "outputs": []
+          },
+          {
+            "id": "etl-checks-md",
+            "cell_type": "markdown",
+            "source": "## Sanity checks\n\nThe gold layer must reconcile with the silver layer; the notebook fails loudly if it does not.",
+            "metadata": {}
+          },
+          {
+            "id": "etl-checks",
+            "cell_type": "code",
+            "metadata": {},
+            "execution_count": null,
+            "source": "silver_total = spark.table(\"silver_sales_enriched\").agg(F.round(F.sum(\"net_amount\"), 2)).first()[0]\ngold_total = spark.table(\"gold_daily_sales\").filter(F.col(\"sale_date\") <= F.lit(run_date).cast(\"date\")).agg(F.round(F.sum(\"net_revenue\"), 2)).first()[0]\ncategory_total = spark.table(\"gold_category_summary\").agg(F.round(F.sum(\"net_revenue\"), 2)).first()[0]\nprint(f\"silver {silver_total}  gold daily {gold_total}  gold category {category_total}\")\nassert abs(silver_total - gold_total) < 1.0, \"gold_daily_sales does not reconcile with silver\"\nassert abs(silver_total - category_total) < 1.0, \"gold_category_summary does not reconcile with silver\"\nassert spark.table(\"silver_sales_enriched\").filter(\"customer_id IS NULL OR product_id IS NULL\").count() == 0, \"null keys in silver\"\nprint(\"ok\")",
+            "outputs": []
+          }
+        ]
+      },
+      "settings": {
+        "engine": "spark",
+        "runtime": {
+          "family": "fabric-2.0-compatible"
+        },
+        "default_lakehouse": {
+          "name": "retail_lakehouse"
+        }
+      }
+    }
+  },
+  {
+    "name": "02_Retail_Explore_Python",
+    "description": "Explore the lakehouse with deltalake, DuckDB, pandas and matplotlib (no Spark).",
+    "tags": [
+      "sample",
+      "retail",
+      "python",
+      "eda"
+    ],
+    "definition": {
+      "nbformat": {
+        "nbformat": 4,
+        "nbformat_minor": 5,
+        "metadata": {
+          "kernelspec": {
+            "name": "python3",
+            "display_name": "Python 3 (ipykernel)",
+            "language": "python"
+          },
+          "language_info": {
+            "name": "python"
+          },
+          "olcf": {
+            "sample": "Sample Retail",
+            "kernel": "python"
+          }
+        },
+        "cells": [
+          {
+            "id": "exp-title",
+            "cell_type": "markdown",
+            "source": "# Explore the retail lakehouse with Python (no Spark)\n\nReads the Delta tables of `retail_lakehouse` with `deltalake`, queries them with DuckDB, shapes the results with pandas and plots with matplotlib.\nRuns on any OLCF Python runtime, or on a laptop: set `RETAIL_TABLES_ROOT` to a folder produced by `python -m olcf.sample.generate --out DIR` (`DIR/Tables`).\n\nNeeds `deltalake`, `duckdb` and `pandas` (part of OLCF itself). Charts need `matplotlib`; without it the notebook still runs and shows the tables, and the cell below says how to add it\n(`pip install \"olcf[plots]\"` for the OLCF installation, or add `matplotlib` to the notebook's Environment item).",
+            "metadata": {}
+          },
+          {
+            "id": "exp-setup",
+            "cell_type": "code",
+            "metadata": {},
+            "execution_count": null,
+            "source": "import os\nfrom pathlib import Path\n\nimport duckdb\nimport pandas as pd\nfrom deltalake import DeltaTable\n\ntry:\n    import matplotlib\n\n    matplotlib.use(os.environ.get(\"MPLBACKEND\") or \"Agg\")\n    import matplotlib.pyplot as plt\nexcept ImportError:  # charts are optional: every cell still shows its table\n    plt = None\n    print(\"matplotlib is not installed here, so charts are skipped and tables are shown instead.\")\n    print(\"To get the charts: pip install 'olcf[plots]' (or add matplotlib to the notebook's Environment).\")\n\npd.set_option(\"display.width\", 140)\npd.set_option(\"display.max_columns\", 20)",
+            "outputs": []
+          },
+          {
+            "id": "exp-root-md",
+            "cell_type": "markdown",
+            "source": "## Locate the tables\n\n`RETAIL_TABLES_ROOT` wins; otherwise the OLCF runtime resolves `Tables/` of the default lakehouse; the Fabric mount path is the last fallback.",
+            "metadata": {}
+          },
+          {
+            "id": "exp-root",
+            "cell_type": "code",
+            "metadata": {},
+            "execution_count": null,
+            "source": "def tables_root() -> Path:\n    override = os.environ.get(\"RETAIL_TABLES_ROOT\")\n    if override:\n        return Path(override)\n    try:\n        from olcf.runtime_lib import paths\n\n        return Path(paths.resolve(\"Tables/fact_sales\", for_=\"local\")).parent\n    except Exception:\n        return Path(\"/lakehouse/default/Tables\")\n\n\nROOT = tables_root()\nprint(\"tables:\", ROOT)",
+            "outputs": []
+          },
+          {
+            "id": "exp-load",
+            "cell_type": "code",
+            "metadata": {},
+            "execution_count": null,
+            "source": "def table(name, version=None):\n    return DeltaTable(str(ROOT / name), version=version)\n\n\ncon = duckdb.connect()\nfor name in (\"fact_sales\", \"fact_web_events\", \"dim_customer\", \"dim_product\", \"dim_store\", \"dim_date\",\n             \"gold_daily_sales\", \"gold_category_summary\", \"gold_customer_ltv\"):\n    con.register(name, table(name).to_pyarrow_dataset())\n\ncon.sql(\"SELECT 'fact_sales' AS table_name, count(*) AS row_count FROM fact_sales UNION ALL \"\n        \"SELECT 'fact_web_events', count(*) FROM fact_web_events\").df()",
+            "outputs": []
+          },
+          {
+            "id": "exp-schema-md",
+            "cell_type": "markdown",
+            "source": "## What is in `fact_sales`?\n\nDelta keeps the schema, the partitioning and a commit log.",
+            "metadata": {}
+          },
+          {
+            "id": "exp-schema",
+            "cell_type": "code",
+            "metadata": {},
+            "execution_count": null,
+            "source": "fact = table(\"fact_sales\")\nprint(\"version:\", fact.version(), \" partitioned by:\", fact.metadata().partition_columns)\nprint(fact.to_pyarrow_dataset().schema)\nfact.history(3)",
+            "outputs": []
+          },
+          {
+            "id": "exp-month-md",
+            "cell_type": "markdown",
+            "source": "## Revenue and profit by month",
+            "metadata": {}
+          },
+          {
+            "id": "exp-month",
+            "cell_type": "code",
+            "metadata": {},
+            "execution_count": null,
+            "source": "monthly = con.sql(\"\"\"\n    SELECT date_trunc('month', sale_date) AS month, sum(net_revenue) AS revenue, sum(profit) AS profit\n    FROM gold_daily_sales GROUP BY 1 ORDER BY 1\n\"\"\").df()\n\nif plt is not None:\n    fig, ax = plt.subplots(figsize=(10, 3.5))\n    ax.plot(monthly[\"month\"], monthly[\"revenue\"], label=\"revenue\")\n    ax.plot(monthly[\"month\"], monthly[\"profit\"], label=\"profit\")\n    ax.set_title(\"Monthly revenue and profit\")\n    ax.legend()\n    fig.autofmt_xdate()\n    plt.show()\nmonthly.tail()",
+            "outputs": []
+          },
+          {
+            "id": "exp-cat-md",
+            "cell_type": "markdown",
+            "source": "## Category mix by year",
+            "metadata": {}
+          },
+          {
+            "id": "exp-cat",
+            "cell_type": "code",
+            "metadata": {},
+            "execution_count": null,
+            "source": "cat = con.sql(\"SELECT category, year, net_revenue FROM gold_category_summary\").df().pivot(index=\"category\", columns=\"year\", values=\"net_revenue\")\ncat = cat.sort_values(cat.columns[-1])\nif plt is not None:\n    fig, ax = plt.subplots(figsize=(8, 3.5))\n    height = 0.8 / len(cat.columns)\n    for i, year in enumerate(cat.columns):\n        ax.barh([j + i * height for j in range(len(cat))], cat[year], height=height, label=str(year))\n    ax.set_yticks([j + 0.4 - height / 2 for j in range(len(cat))], list(cat.index))\n    ax.set_title(\"Net revenue by category and year\")\n    ax.legend()\n    plt.show()\ncat.round(0)",
+            "outputs": []
+          },
+          {
+            "id": "exp-funnel-md",
+            "cell_type": "markdown",
+            "source": "## Web funnel\n\nSessions that reached each step of the visit, by device.",
+            "metadata": {}
+          },
+          {
+            "id": "exp-funnel",
+            "cell_type": "code",
+            "metadata": {},
+            "execution_count": null,
+            "source": "funnel = con.sql(\"\"\"\n    SELECT device,\n           count(DISTINCT session_id) AS sessions,\n           count(DISTINCT CASE WHEN event_type = 'add_to_cart' THEN session_id END) AS carts,\n           count(DISTINCT CASE WHEN event_type = 'checkout_start' THEN session_id END) AS checkouts,\n           count(DISTINCT CASE WHEN event_type = 'purchase' THEN session_id END) AS purchases\n    FROM fact_web_events GROUP BY device ORDER BY sessions DESC\n\"\"\").df()\nfunnel[\"conversion_pct\"] = (100 * funnel[\"purchases\"] / funnel[\"sessions\"]).round(2)\nfunnel",
+            "outputs": []
+          },
+          {
+            "id": "exp-ltv-md",
+            "cell_type": "markdown",
+            "source": "## Customer value\n\nLifetime value by segment, joined to the customer dimension.",
+            "metadata": {}
+          },
+          {
+            "id": "exp-ltv",
+            "cell_type": "code",
+            "metadata": {},
+            "execution_count": null,
+            "source": "ltv = con.sql(\"\"\"\n    SELECT l.ltv_segment, c.segment AS customer_segment, count(*) AS customers, round(avg(l.lifetime_revenue), 2) AS avg_lifetime_revenue\n    FROM gold_customer_ltv l JOIN dim_customer c USING (customer_id)\n    GROUP BY ALL ORDER BY 1, 2\n\"\"\").df()\npivot = ltv.pivot(index=\"ltv_segment\", columns=\"customer_segment\", values=\"avg_lifetime_revenue\")\nif plt is not None:\n    fig, ax = plt.subplots(figsize=(8, 3.5))\n    width = 0.8 / len(pivot.columns)\n    for i, segment in enumerate(pivot.columns):\n        ax.bar([j + i * width for j in range(len(pivot))], pivot[segment], width=width, label=segment)\n    ax.set_xticks([j + 0.4 - width / 2 for j in range(len(pivot))], list(pivot.index))\n    ax.set_title(\"Average lifetime revenue by value and customer segment\")\n    ax.legend()\n    plt.show()\nltv",
+            "outputs": []
+          },
+          {
+            "id": "exp-travel-md",
+            "cell_type": "markdown",
+            "source": "## Time travel\n\nThe first commit of a table is still readable: `DeltaTable(path, version=0)`.",
+            "metadata": {}
+          },
+          {
+            "id": "exp-travel",
+            "cell_type": "code",
+            "metadata": {},
+            "execution_count": null,
+            "source": "current = table(\"gold_daily_sales\")\nfirst = table(\"gold_daily_sales\", version=0)\nprint(f\"current version {current.version()}: {current.to_pyarrow_table().num_rows} rows; version 0: {first.to_pyarrow_table().num_rows} rows\")",
+            "outputs": []
+          },
+          {
+            "id": "exp-check",
+            "cell_type": "code",
+            "metadata": {},
+            "execution_count": null,
+            "source": "total_sales = con.sql(\"SELECT round(sum(net_amount), 2) FROM fact_sales\").fetchone()[0]\ntotal_gold = con.sql(\"SELECT round(sum(net_revenue), 2) FROM gold_daily_sales\").fetchone()[0]\nassert abs(total_sales - total_gold) < 1.0, (total_sales, total_gold)\nprint(f\"revenue {total_sales:,.2f} reconciles with gold_daily_sales\")",
+            "outputs": []
+          }
+        ]
+      },
+      "settings": {
+        "engine": "python",
+        "runtime": {
+          "family": "host-python"
+        },
+        "default_lakehouse": {
+          "name": "retail_lakehouse"
+        }
+      }
+    }
+  }
+]

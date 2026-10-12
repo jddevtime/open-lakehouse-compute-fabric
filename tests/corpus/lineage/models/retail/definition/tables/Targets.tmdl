@@ -1,0 +1,16 @@
+table Targets
+
+	column Region
+		dataType: string
+
+	column Target
+		dataType: decimal
+
+	partition Targets = m
+		mode: import
+		source =
+				let
+				    Source = Excel.Workbook(File.Contents("C:\Shared\targets.xlsx"), null, true),
+				    Sheet = Source{[Item="Targets",Kind="Sheet"]}[Data]
+				in
+				    Sheet

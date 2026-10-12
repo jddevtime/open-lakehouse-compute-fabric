@@ -1,0 +1,23 @@
+{
+  "schema": "olcf.pipeline/1",
+  "parameters": {
+    "who": {"type": "string", "default": "world"}
+  },
+  "variables": {
+    "greeting": {"type": "string", "default": ""}
+  },
+  "activities": [
+    {
+      "name": "BuildGreeting",
+      "type": "set_variable",
+      "typeProperties": {"variable": "greeting", "value": "@concat('hello ', pipeline().parameters.who)"}
+    },
+    {
+      "name": "Pause",
+      "type": "wait",
+      "dependsOn": ["BuildGreeting"],
+      "typeProperties": {"waitTimeInSeconds": 1}
+    }
+  ],
+  "outputs": {"greeting": "@variables('greeting')"}
+}

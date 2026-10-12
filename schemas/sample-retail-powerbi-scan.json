@@ -1,0 +1,847 @@
+{
+  "x-olcf-synthetic": "synthetic example – not from a real tenant. Made up for the OLCF sample; nothing in this document was read from a Power BI or Fabric tenant.",
+  "workspaces": [
+    {
+      "id": "c5a5d57c-c503-5f16-ae65-47f9e2bd48e5",
+      "name": "Sample Retail (synthetic example – not from a real tenant)",
+      "type": "Workspace",
+      "state": "Active",
+      "isOnDedicatedCapacity": false,
+      "reports": [
+        {
+          "reportType": "PowerBIReport",
+          "id": "3a02e6b7-6b46-5146-8287-9d8124e3a8f9",
+          "name": "Retail Sales Report",
+          "datasetId": "864e900e-06da-59ca-b780-4f52e6755cf6",
+          "createdDateTime": "2026-01-01T00:00:00.000",
+          "modifiedDateTime": "2026-01-01T00:00:00.000",
+          "modifiedBy": "synthetic.owner@example.com",
+          "createdBy": "synthetic.owner@example.com",
+          "users": [],
+          "olcfReportDefinition": {
+            "definition.pbir": {
+              "version": "4.0",
+              "datasetReference": {
+                "byConnection": {
+                  "connectionString": "Data Source=powerbi://api.powerbi.com/v1.0/myorg/Sample Retail (synthetic example – not from a real tenant);initial catalog=Retail Sales Model;semanticmodelid=864e900e-06da-59ca-b780-4f52e6755cf6",
+                  "pbiModelDatabaseName": "864e900e-06da-59ca-b780-4f52e6755cf6",
+                  "connectionType": "pbiServiceXmlaStyleLive"
+                }
+              }
+            },
+            "definition/version.json": {
+              "version": "2.0.0"
+            },
+            "definition/report.json": {
+              "themeCollection": {
+                "baseTheme": {
+                  "name": "CY24SU10"
+                }
+              },
+              "description": "Retail Sales Report (synthetic example – not from a real tenant)"
+            },
+            "definition/pages/pages.json": {
+              "pageOrder": [
+                "overview",
+                "customers"
+              ],
+              "activePageName": "overview"
+            },
+            "definition/pages/overview/page.json": {
+              "name": "overview",
+              "displayName": "Sales overview",
+              "displayOption": "FitToPage",
+              "width": 1280,
+              "height": 720
+            },
+            "definition/pages/customers/page.json": {
+              "name": "customers",
+              "displayName": "Customer value",
+              "displayOption": "FitToPage",
+              "width": 1280,
+              "height": 720
+            },
+            "definition/pages/overview/visuals/revenue/visual.json": {
+              "name": "revenue",
+              "position": {
+                "x": 20,
+                "y": 20,
+                "width": 280,
+                "height": 180
+              },
+              "visual": {
+                "visualType": "card",
+                "query": {
+                  "queryState": {
+                    "Values": {
+                      "projections": [
+                        {
+                          "field": {
+                            "Measure": {
+                              "Expression": {
+                                "SourceRef": {
+                                  "Entity": "Daily Sales"
+                                }
+                              },
+                              "Property": "Total Revenue"
+                            }
+                          },
+                          "queryRef": "Daily Sales.Total Revenue"
+                        }
+                      ]
+                    }
+                  }
+                },
+                "visualContainerObjects": {
+                  "title": [
+                    {
+                      "properties": {
+                        "text": {
+                          "expr": {
+                            "Literal": {
+                              "Value": "'Revenue (card)'"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            },
+            "definition/pages/overview/visuals/profit/visual.json": {
+              "name": "profit",
+              "position": {
+                "x": 320,
+                "y": 20,
+                "width": 280,
+                "height": 180
+              },
+              "visual": {
+                "visualType": "card",
+                "query": {
+                  "queryState": {
+                    "Values": {
+                      "projections": [
+                        {
+                          "field": {
+                            "Measure": {
+                              "Expression": {
+                                "SourceRef": {
+                                  "Entity": "Daily Sales"
+                                }
+                              },
+                              "Property": "Total Profit"
+                            }
+                          },
+                          "queryRef": "Daily Sales.Total Profit"
+                        }
+                      ]
+                    }
+                  }
+                },
+                "visualContainerObjects": {
+                  "title": [
+                    {
+                      "properties": {
+                        "text": {
+                          "expr": {
+                            "Literal": {
+                              "Value": "'Profit (card)'"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            },
+            "definition/pages/overview/visuals/orders/visual.json": {
+              "name": "orders",
+              "position": {
+                "x": 620,
+                "y": 20,
+                "width": 280,
+                "height": 180
+              },
+              "visual": {
+                "visualType": "card",
+                "query": {
+                  "queryState": {
+                    "Values": {
+                      "projections": [
+                        {
+                          "field": {
+                            "Measure": {
+                              "Expression": {
+                                "SourceRef": {
+                                  "Entity": "Daily Sales"
+                                }
+                              },
+                              "Property": "Total Orders"
+                            }
+                          },
+                          "queryRef": "Daily Sales.Total Orders"
+                        }
+                      ]
+                    }
+                  }
+                },
+                "visualContainerObjects": {
+                  "title": [
+                    {
+                      "properties": {
+                        "text": {
+                          "expr": {
+                            "Literal": {
+                              "Value": "'Orders (card)'"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            },
+            "definition/pages/overview/visuals/aov/visual.json": {
+              "name": "aov",
+              "position": {
+                "x": 920,
+                "y": 20,
+                "width": 280,
+                "height": 180
+              },
+              "visual": {
+                "visualType": "card",
+                "query": {
+                  "queryState": {
+                    "Values": {
+                      "projections": [
+                        {
+                          "field": {
+                            "Measure": {
+                              "Expression": {
+                                "SourceRef": {
+                                  "Entity": "Daily Sales"
+                                }
+                              },
+                              "Property": "Average Order Value"
+                            }
+                          },
+                          "queryRef": "Daily Sales.Average Order Value"
+                        }
+                      ]
+                    }
+                  }
+                },
+                "visualContainerObjects": {
+                  "title": [
+                    {
+                      "properties": {
+                        "text": {
+                          "expr": {
+                            "Literal": {
+                              "Value": "'Average order value (card)'"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            },
+            "definition/pages/overview/visuals/margin/visual.json": {
+              "name": "margin",
+              "position": {
+                "x": 20,
+                "y": 220,
+                "width": 280,
+                "height": 180
+              },
+              "visual": {
+                "visualType": "card",
+                "query": {
+                  "queryState": {
+                    "Values": {
+                      "projections": [
+                        {
+                          "field": {
+                            "Measure": {
+                              "Expression": {
+                                "SourceRef": {
+                                  "Entity": "Daily Sales"
+                                }
+                              },
+                              "Property": "Gross Margin %"
+                            }
+                          },
+                          "queryRef": "Daily Sales.Gross Margin %"
+                        }
+                      ]
+                    }
+                  }
+                },
+                "visualContainerObjects": {
+                  "title": [
+                    {
+                      "properties": {
+                        "text": {
+                          "expr": {
+                            "Literal": {
+                              "Value": "'Gross margin (card)'"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            },
+            "definition/pages/overview/visuals/revenue_by_day/visual.json": {
+              "name": "revenue_by_day",
+              "position": {
+                "x": 320,
+                "y": 220,
+                "width": 280,
+                "height": 180
+              },
+              "visual": {
+                "visualType": "lineChart",
+                "query": {
+                  "queryState": {
+                    "Category": {
+                      "projections": [
+                        {
+                          "field": {
+                            "Column": {
+                              "Expression": {
+                                "SourceRef": {
+                                  "Entity": "Daily Sales"
+                                }
+                              },
+                              "Property": "sale_date"
+                            }
+                          },
+                          "queryRef": "Daily Sales.sale_date"
+                        }
+                      ]
+                    },
+                    "Y": {
+                      "projections": [
+                        {
+                          "field": {
+                            "Measure": {
+                              "Expression": {
+                                "SourceRef": {
+                                  "Entity": "Daily Sales"
+                                }
+                              },
+                              "Property": "Total Revenue"
+                            }
+                          },
+                          "queryRef": "Daily Sales.Total Revenue"
+                        }
+                      ]
+                    }
+                  }
+                },
+                "visualContainerObjects": {
+                  "title": [
+                    {
+                      "properties": {
+                        "text": {
+                          "expr": {
+                            "Literal": {
+                              "Value": "'Revenue by day (line)'"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            },
+            "definition/pages/overview/visuals/revenue_by_category/visual.json": {
+              "name": "revenue_by_category",
+              "position": {
+                "x": 620,
+                "y": 220,
+                "width": 280,
+                "height": 180
+              },
+              "visual": {
+                "visualType": "barChart",
+                "query": {
+                  "queryState": {
+                    "Category": {
+                      "projections": [
+                        {
+                          "field": {
+                            "Column": {
+                              "Expression": {
+                                "SourceRef": {
+                                  "Entity": "Category Summary"
+                                }
+                              },
+                              "Property": "category"
+                            }
+                          },
+                          "queryRef": "Category Summary.category"
+                        }
+                      ]
+                    },
+                    "Y": {
+                      "projections": [
+                        {
+                          "field": {
+                            "Measure": {
+                              "Expression": {
+                                "SourceRef": {
+                                  "Entity": "Category Summary"
+                                }
+                              },
+                              "Property": "Category Revenue"
+                            }
+                          },
+                          "queryRef": "Category Summary.Category Revenue"
+                        }
+                      ]
+                    }
+                  }
+                },
+                "visualContainerObjects": {
+                  "title": [
+                    {
+                      "properties": {
+                        "text": {
+                          "expr": {
+                            "Literal": {
+                              "Value": "'Revenue by category (bar)'"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            },
+            "definition/pages/customers/visuals/ltv/visual.json": {
+              "name": "ltv",
+              "position": {
+                "x": 920,
+                "y": 220,
+                "width": 280,
+                "height": 180
+              },
+              "visual": {
+                "visualType": "card",
+                "query": {
+                  "queryState": {
+                    "Values": {
+                      "projections": [
+                        {
+                          "field": {
+                            "Measure": {
+                              "Expression": {
+                                "SourceRef": {
+                                  "Entity": "Customer LTV"
+                                }
+                              },
+                              "Property": "Average Lifetime Revenue"
+                            }
+                          },
+                          "queryRef": "Customer LTV.Average Lifetime Revenue"
+                        }
+                      ]
+                    }
+                  }
+                },
+                "visualContainerObjects": {
+                  "title": [
+                    {
+                      "properties": {
+                        "text": {
+                          "expr": {
+                            "Literal": {
+                              "Value": "'Average lifetime revenue (card)'"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            },
+            "definition/pages/customers/visuals/ltv_by_segment/visual.json": {
+              "name": "ltv_by_segment",
+              "position": {
+                "x": 20,
+                "y": 420,
+                "width": 280,
+                "height": 180
+              },
+              "visual": {
+                "visualType": "barChart",
+                "query": {
+                  "queryState": {
+                    "Category": {
+                      "projections": [
+                        {
+                          "field": {
+                            "Column": {
+                              "Expression": {
+                                "SourceRef": {
+                                  "Entity": "Customer LTV"
+                                }
+                              },
+                              "Property": "ltv_segment"
+                            }
+                          },
+                          "queryRef": "Customer LTV.ltv_segment"
+                        }
+                      ]
+                    },
+                    "Y": {
+                      "projections": [
+                        {
+                          "field": {
+                            "Measure": {
+                              "Expression": {
+                                "SourceRef": {
+                                  "Entity": "Customer LTV"
+                                }
+                              },
+                              "Property": "Customers"
+                            }
+                          },
+                          "queryRef": "Customer LTV.Customers"
+                        }
+                      ]
+                    }
+                  }
+                },
+                "visualContainerObjects": {
+                  "title": [
+                    {
+                      "properties": {
+                        "text": {
+                          "expr": {
+                            "Literal": {
+                              "Value": "'Customers by value segment (bar)'"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      ],
+      "dashboards": [],
+      "datasets": [
+        {
+          "id": "864e900e-06da-59ca-b780-4f52e6755cf6",
+          "name": "Retail Sales Model",
+          "configuredBy": "synthetic.owner@example.com",
+          "targetStorageMode": "DirectLake",
+          "contentProviderType": "SyntheticExample",
+          "createdDate": "2026-01-01T00:00:00.000",
+          "tables": [
+            {
+              "name": "Daily Sales",
+              "isHidden": false,
+              "description": "Direct Lake style table over retail_lakehouse.gold_daily_sales (synthetic example – not from a real tenant)",
+              "columns": [
+                {
+                  "name": "sale_date",
+                  "dataType": "DateTime",
+                  "isHidden": false,
+                  "columnType": "Data"
+                },
+                {
+                  "name": "orders",
+                  "dataType": "Int64",
+                  "isHidden": false,
+                  "columnType": "Data"
+                },
+                {
+                  "name": "units",
+                  "dataType": "Int64",
+                  "isHidden": false,
+                  "columnType": "Data"
+                },
+                {
+                  "name": "customers",
+                  "dataType": "Int64",
+                  "isHidden": false,
+                  "columnType": "Data"
+                },
+                {
+                  "name": "gross_revenue",
+                  "dataType": "Double",
+                  "isHidden": false,
+                  "columnType": "Data"
+                },
+                {
+                  "name": "net_revenue",
+                  "dataType": "Double",
+                  "isHidden": false,
+                  "columnType": "Data"
+                },
+                {
+                  "name": "profit",
+                  "dataType": "Double",
+                  "isHidden": false,
+                  "columnType": "Data"
+                },
+                {
+                  "name": "avg_order_value",
+                  "dataType": "Double",
+                  "isHidden": false,
+                  "columnType": "Data"
+                }
+              ],
+              "measures": [
+                {
+                  "name": "Total Revenue",
+                  "expression": "SUM('Daily Sales'[net_revenue])",
+                  "isHidden": false
+                },
+                {
+                  "name": "Gross Revenue",
+                  "expression": "SUM('Daily Sales'[gross_revenue])",
+                  "isHidden": false
+                },
+                {
+                  "name": "Total Profit",
+                  "expression": "SUM('Daily Sales'[profit])",
+                  "isHidden": false
+                },
+                {
+                  "name": "Total Orders",
+                  "expression": "SUM('Daily Sales'[orders])",
+                  "isHidden": false
+                },
+                {
+                  "name": "Average Order Value",
+                  "expression": "DIVIDE([Total Revenue], [Total Orders])",
+                  "isHidden": false
+                },
+                {
+                  "name": "Gross Margin %",
+                  "expression": "DIVIDE([Total Profit], [Total Revenue])",
+                  "isHidden": false
+                },
+                {
+                  "name": "Discount Amount",
+                  "expression": "[Gross Revenue] - [Total Revenue]",
+                  "isHidden": false
+                }
+              ],
+              "source": [
+                {
+                  "expression": "let\n    Source = Sql.Database(\"synthetic-sample.datawarehouse.fabric.microsoft.com\", \"retail_lakehouse\"),\n    Data = Source{[Schema = \"dbo\", Item = \"gold_daily_sales\"]}[Data]\nin\n    Data"
+                }
+              ]
+            },
+            {
+              "name": "Category Summary",
+              "isHidden": false,
+              "description": "Direct Lake style table over retail_lakehouse.gold_category_summary (synthetic example – not from a real tenant)",
+              "columns": [
+                {
+                  "name": "category",
+                  "dataType": "String",
+                  "isHidden": false,
+                  "columnType": "Data"
+                },
+                {
+                  "name": "year",
+                  "dataType": "Int64",
+                  "isHidden": false,
+                  "columnType": "Data"
+                },
+                {
+                  "name": "orders",
+                  "dataType": "Int64",
+                  "isHidden": false,
+                  "columnType": "Data"
+                },
+                {
+                  "name": "units",
+                  "dataType": "Int64",
+                  "isHidden": false,
+                  "columnType": "Data"
+                },
+                {
+                  "name": "net_revenue",
+                  "dataType": "Double",
+                  "isHidden": false,
+                  "columnType": "Data"
+                },
+                {
+                  "name": "profit",
+                  "dataType": "Double",
+                  "isHidden": false,
+                  "columnType": "Data"
+                },
+                {
+                  "name": "margin_pct",
+                  "dataType": "Double",
+                  "isHidden": false,
+                  "columnType": "Data"
+                },
+                {
+                  "name": "revenue_share_pct",
+                  "dataType": "Double",
+                  "isHidden": false,
+                  "columnType": "Data"
+                },
+                {
+                  "name": "revenue_rank",
+                  "dataType": "Int64",
+                  "isHidden": false,
+                  "columnType": "Data"
+                }
+              ],
+              "measures": [
+                {
+                  "name": "Category Revenue",
+                  "expression": "SUM('Category Summary'[net_revenue])",
+                  "isHidden": false
+                },
+                {
+                  "name": "Category Profit",
+                  "expression": "SUM('Category Summary'[profit])",
+                  "isHidden": false
+                }
+              ],
+              "source": [
+                {
+                  "expression": "let\n    Source = Sql.Database(\"synthetic-sample.datawarehouse.fabric.microsoft.com\", \"retail_lakehouse\"),\n    Data = Source{[Schema = \"dbo\", Item = \"gold_category_summary\"]}[Data]\nin\n    Data"
+                }
+              ]
+            },
+            {
+              "name": "Customer LTV",
+              "isHidden": false,
+              "description": "Direct Lake style table over retail_lakehouse.gold_customer_ltv (synthetic example – not from a real tenant)",
+              "columns": [
+                {
+                  "name": "customer_id",
+                  "dataType": "Int64",
+                  "isHidden": false,
+                  "columnType": "Data"
+                },
+                {
+                  "name": "first_order_date",
+                  "dataType": "DateTime",
+                  "isHidden": false,
+                  "columnType": "Data"
+                },
+                {
+                  "name": "last_order_date",
+                  "dataType": "DateTime",
+                  "isHidden": false,
+                  "columnType": "Data"
+                },
+                {
+                  "name": "orders",
+                  "dataType": "Int64",
+                  "isHidden": false,
+                  "columnType": "Data"
+                },
+                {
+                  "name": "units",
+                  "dataType": "Int64",
+                  "isHidden": false,
+                  "columnType": "Data"
+                },
+                {
+                  "name": "lifetime_revenue",
+                  "dataType": "Double",
+                  "isHidden": false,
+                  "columnType": "Data"
+                },
+                {
+                  "name": "lifetime_profit",
+                  "dataType": "Double",
+                  "isHidden": false,
+                  "columnType": "Data"
+                },
+                {
+                  "name": "avg_order_value",
+                  "dataType": "Double",
+                  "isHidden": false,
+                  "columnType": "Data"
+                },
+                {
+                  "name": "recency_days",
+                  "dataType": "Int64",
+                  "isHidden": false,
+                  "columnType": "Data"
+                },
+                {
+                  "name": "ltv_segment",
+                  "dataType": "String",
+                  "isHidden": false,
+                  "columnType": "Data"
+                }
+              ],
+              "measures": [
+                {
+                  "name": "Average Lifetime Revenue",
+                  "expression": "AVERAGE('Customer LTV'[lifetime_revenue])",
+                  "isHidden": false
+                },
+                {
+                  "name": "Customers",
+                  "expression": "DISTINCTCOUNT('Customer LTV'[customer_id])",
+                  "isHidden": false
+                }
+              ],
+              "source": [
+                {
+                  "expression": "let\n    Source = Sql.Database(\"synthetic-sample.datawarehouse.fabric.microsoft.com\", \"retail_lakehouse\"),\n    Data = Source{[Schema = \"dbo\", Item = \"gold_customer_ltv\"]}[Data]\nin\n    Data"
+                }
+              ]
+            }
+          ],
+          "expressions": [],
+          "datasourceUsages": [
+            {
+              "datasourceInstanceId": "02d3d553-d565-5b7b-aee1-c5061eac9381"
+            }
+          ],
+          "upstreamDataflows": [],
+          "users": []
+        }
+      ],
+      "dataflows": [],
+      "datamarts": [],
+      "users": []
+    }
+  ],
+  "datasourceInstances": [
+    {
+      "datasourceType": "Sql",
+      "connectionDetails": {
+        "server": "synthetic-sample.datawarehouse.fabric.microsoft.com",
+        "database": "retail_lakehouse"
+      },
+      "datasourceId": "02d3d553-d565-5b7b-aee1-c5061eac9381",
+      "gatewayId": null
+    }
+  ],
+  "misconfiguredDatasourceInstances": []
+}

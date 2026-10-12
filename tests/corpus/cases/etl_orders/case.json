@@ -1,0 +1,14 @@
+{
+  "data_run": "notebook",
+  "description": "CSV -> cleanse -> derive -> parquet -> read back and aggregate; relative Files/ paths, parameter cell",
+  "engine": "spark",
+  "extra_lakehouses": [],
+  "name": "etl_orders",
+  "needs": "",
+  "parameters": {
+    "min_qty": 2
+  },
+  "primary_format": "ipynb",
+  "standalone_engine": "spark",
+  "why": ""
+}

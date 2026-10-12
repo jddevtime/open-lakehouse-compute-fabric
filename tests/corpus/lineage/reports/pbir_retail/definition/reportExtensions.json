@@ -1,0 +1,15 @@
+{
+  "name": "extension",
+  "entities": [
+    {
+      "name": "Local",
+      "measures": [
+        {
+          "name": "Report Measure",
+          "dataType": "Double",
+          "expression": "SUM(Sales[Revenue]) * 2"
+        }
+      ]
+    }
+  ]
+}

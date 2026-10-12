@@ -1,0 +1,104 @@
+{
+  "$id": "https://olcf.dev/schemas/fabric-import-support.json",
+  "title": "Fabric pipeline import support",
+  "author": "Justin Dodrill",
+  "target": "olcf.pipeline/1",
+  "supported": {
+    "TridentNotebook": {
+      "olcf": "notebook",
+      "status": "supported",
+      "note": "Notebook id/name resolved with item_map; Fabric workspace ids are ignored."
+    },
+    "SparkJobDefinition": {
+      "olcf": "spark_job",
+      "status": "partial",
+      "note": "Activity-level arguments and conf are dropped (reported)."
+    },
+    "Copy": {
+      "olcf": "copy",
+      "status": "partial",
+      "note": "Lakehouse files/tables only; column mappings (translator) are dropped (reported)."
+    },
+    "WebActivity": {
+      "olcf": "http",
+      "status": "partial",
+      "note": "url-based requests only; credentials are never imported."
+    },
+    "WebHook": {
+      "olcf": "webhook_wait",
+      "status": "supported",
+      "note": "Callback URL is sent as callBackUri in the request body."
+    },
+    "ExecutePipeline": {
+      "olcf": "child_pipeline",
+      "status": "supported",
+      "note": "Pipeline resolved with item_map (id or name)."
+    },
+    "Wait": {
+      "olcf": "wait",
+      "status": "supported",
+      "note": ""
+    },
+    "SetVariable": {
+      "olcf": "set_variable",
+      "status": "partial",
+      "note": "Pipeline return values (setSystemVariable) are unsupported."
+    },
+    "AppendVariable": {
+      "olcf": "set_variable",
+      "status": "supported",
+      "note": "mode=append"
+    },
+    "IfCondition": {
+      "olcf": "if",
+      "status": "supported",
+      "note": ""
+    },
+    "ForEach": {
+      "olcf": "for_each",
+      "status": "supported",
+      "note": "isSequential and batchCount are honoured."
+    },
+    "Switch": {
+      "olcf": "switch",
+      "status": "supported",
+      "note": ""
+    },
+    "Until": {
+      "olcf": "until",
+      "status": "supported",
+      "note": "timeout becomes the activity timeoutSeconds policy."
+    },
+    "Fail": {
+      "olcf": "fail",
+      "status": "supported",
+      "note": ""
+    }
+  },
+  "unsupported_hints": {
+    "Lookup": "Use a sql activity (DuckDB over the lakehouse) and read activity('<name>').output.firstRow / .rows.",
+    "GetMetadata": "Use a script or sql activity to list files / read table metadata.",
+    "Filter": "Filter inside an expression (e.g. a sql activity or for_each with an if).",
+    "Delete": "Use a script activity (python) that removes the files.",
+    "Script": "Fabric Script activities run SQL against a warehouse connection; use a sql activity (DuckDB) or a spark_job/notebook activity.",
+    "AzureFunction": "Use an http activity against the function URL (with a secret reference for the key).",
+    "RefreshDataflow": "Dataflows Gen2 are a Fabric service and are not part of the open runtime.",
+    "Office365Outlook": "Send e-mail through an alert channel or an http activity against your mail API.",
+    "Teams": "Post to Teams with an http activity against an incoming webhook (store the URL as a secret).",
+    "Validation": "Use an until activity polling with a sql/script activity.",
+    "SqlServerStoredProcedure": "Not available; run the logic in a notebook or sql activity.",
+    "PBISemanticModelRefresh": "Power BI semantic models are a Fabric service.",
+    "Databricks*": "Databricks activities need a Databricks workspace; run the notebook on the OLCF compute fabric instead.",
+    "HDInsight*": "HDInsight clusters are not part of the open runtime.",
+    "Synapse*": "Synapse artefacts are not part of the open runtime.",
+    "AzureML*": "Azure ML activities are not part of the open runtime.",
+    "ExecuteSSIS*": "SSIS is not supported.",
+    "Kusto*": "KQL / Kusto activities are a Fabric service.",
+    "Custom*": "Custom (Azure Batch) activities are not supported; use a script activity."
+  },
+  "on_unsupported": [
+    "placeholder",
+    "skip",
+    "error"
+  ]
+}

@@ -1,0 +1,425 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Justin Dodrill
+#
+# Declarative compatibility rules for notebooks written for "Fabric Runtime 2.0 Compatible" (Spark 4.1 / Python 3.13 / Delta 4.2).
+#
+# Every construct the analyzer recognises is classified by exactly one rule. The detectors (olcf.fabric.analyzer.*) decide
+# WHAT was found and which rule id applies; this file decides HOW it is classified, what it tells the user and how to fix it.
+# That keeps the policy reviewable and versionable: bump `ruleset_version` (and olcf.version.COMPAT_RULESET_VERSION) on any change.
+#
+# Classes (spec section 11):
+#   native-portable        runs unchanged on matching open-source Spark / Python
+#   compatibility-shim     works through an OLCF shim (olcf.runtime_lib.notebookutils, magics, path resolution)
+#   deterministic-rewrite  source is rewritten by a deterministic, listed, source-map preserving transformation
+#   warning                runs, but behaviour/availability needs the author's attention
+#   fabric-only-fallback   Fabric-specific optimisation/feature with no OLCF equivalent; ignored without changing results
+#   unsupported            cannot run; the job is blocked BEFORE execution (fail closed)
+#
+# Matchers:
+#   call    dotted names (fnmatch globs) of attribute chains / calls, after alias resolution (mssparkutils == notebookutils)
+#   import  module name globs
+#   conf    Spark configuration key globs
+#   magic   {kind: cell|line, names: [...]}
+#   api     method names (attribute access on any object), e.g. synapsesql
+#   (no matcher) rules referenced by id from a built-in detector
+ruleset_version: "1.0.0"
+runtime_families: [fabric-2.0-compatible, fabric-1.3-compatible, olcf-native]
+classes: [native-portable, compatibility-shim, deterministic-rewrite, warning, fabric-only-fallback, unsupported]
+
+rules:
+  # ------------------------------------------------------------------------------- notebookutils: file system
+  - id: FAB-NBU-FS
+    title: notebookutils.fs file operations
+    call: [notebookutils.fs.ls, notebookutils.fs.mkdirs, notebookutils.fs.cp, notebookutils.fs.fastcp, notebookutils.fs.mv, notebookutils.fs.rm,
+           notebookutils.fs.head, notebookutils.fs.put, notebookutils.fs.append, notebookutils.fs.exists, notebookutils.fs.help]
+    class: compatibility-shim
+    shim: fs
+    message: Served by the OLCF notebookutils.fs shim (Hadoop FileSystem through Spark; plain filesystem for local lakehouses).
+  - id: FAB-NBU-FS-MOUNT
+    title: notebookutils.fs mount points
+    call: [notebookutils.fs.mount, notebookutils.fs.unmount, notebookutils.fs.mounts, notebookutils.fs.getMountPath]
+    class: unsupported
+    message: Fabric mount points (the /synfs FUSE mounts) do not exist on OLCF workers.
+    remediation: Address data with Spark APIs and relative Files/ or Tables/ paths, abfss:// URLs, or notebookutils.fs.* instead of mount points / getMountPath.
+  # ------------------------------------------------------------------------------- notebookutils: notebook
+  - id: FAB-NBU-NOTEBOOK
+    title: notebookutils.notebook exit / run
+    call: [notebookutils.notebook.exit, notebookutils.notebook.run, notebookutils.notebook.runMultiple, notebookutils.notebook.help]
+    class: compatibility-shim
+    shim: notebook
+    message: exit() returns the value as the job's exit value; run()/runMultiple() submit child jobs through the job-scoped token.
+  - id: FAB-NBU-NOTEBOOK-MGMT
+    title: notebookutils.notebook item management
+    call: [notebookutils.notebook.create, notebookutils.notebook.get, notebookutils.notebook.getDefinition, notebookutils.notebook.update,
+           notebookutils.notebook.updateDefinition, notebookutils.notebook.delete, notebookutils.notebook.list, notebookutils.notebook.validateDAG]
+    class: unsupported
+    message: Managing Fabric notebook items requires the Fabric workspace APIs of the notebook session, which a remote run does not have.
+    remediation: Perform notebook item management in the Fabric notebook before or after olcf.run_remote(), or use the Fabric REST API from a pipeline.
+  # ------------------------------------------------------------------------------- notebookutils: credentials
+  - id: FAB-NBU-CRED
+    title: notebookutils.credentials getSecret / getToken
+    call: [notebookutils.credentials.getSecret, notebookutils.credentials.getToken, notebookutils.credentials.help]
+    class: compatibility-shim
+    shim: credentials
+    message: getSecret resolves only secrets explicitly granted to the job (Key Vault URL + name map to OLCF secrets); getToken supports the storage/OneLake audience of the job's storage identity.
+    remediation: Grant the secret to the capsule (olcf.run_remote(secrets=...)) and keep the Key Vault URL/secret name used by the notebook.
+  - id: FAB-NBU-CRED-OTHER
+    title: notebookutils.credentials (other)
+    call: [notebookutils.credentials.putSecret, notebookutils.credentials.isValidToken, notebookutils.credentials.getConnectionStringOrCreds]
+    class: unsupported
+    message: This credentials API needs the interactive Fabric session identity.
+    remediation: Use an OLCF connection/secret reference and read it with notebookutils.credentials.getSecret.
+  # ------------------------------------------------------------------------------- notebookutils: runtime / session / env / lakehouse
+  - id: FAB-NBU-RUNTIME
+    title: notebookutils.runtime.context
+    call: [notebookutils.runtime.context, notebookutils.runtime.context.*, notebookutils.runtime.help]
+    class: compatibility-shim
+    shim: runtime
+    message: The context is rebuilt from the Fabric context captured in the execution capsule (same keys and values).
+  - id: FAB-NBU-RUNTIME-RESTART
+    title: notebookutils.runtime.restartPython
+    call: [notebookutils.runtime.restartPython]
+    class: unsupported
+    message: Restarting the Python interpreter would discard the remote run's state.
+    remediation: Remove restartPython(); declare packages in the Environment instead of installing them in the notebook.
+  - id: FAB-NBU-SESSION
+    title: notebookutils.session.stop
+    call: [notebookutils.session.stop, notebookutils.session.help]
+    class: compatibility-shim
+    shim: session
+    message: Stops the Spark session of the job.
+  - id: FAB-NBU-ENV
+    title: mssparkutils.env (legacy)
+    call: [notebookutils.env.getWorkspaceName, notebookutils.env.getWorkspaceId, notebookutils.env.getUserName, notebookutils.env.getUserId,
+           notebookutils.env.getJobId, notebookutils.env.help]
+    class: compatibility-shim
+    shim: env
+    message: Answered from the rebuilt runtime context.
+  - id: FAB-NBU-ENV-OTHER
+    title: mssparkutils.env (cluster details)
+    call: [notebookutils.env.getClusterId, notebookutils.env.getPoolName, notebookutils.env.getLakehouseId]
+    class: unsupported
+    message: Fabric cluster/pool details do not exist on OLCF.
+    remediation: Use notebookutils.runtime.context for workspace/lakehouse identity and the Spark UI for cluster details.
+  - id: FAB-NBU-LAKEHOUSE
+    title: notebookutils.lakehouse get / list
+    call: [notebookutils.lakehouse.get, notebookutils.lakehouse.list, notebookutils.lakehouse.help]
+    class: compatibility-shim
+    shim: lakehouse
+    message: Limited to the lakehouses attached to the job.
+  - id: FAB-NBU-LAKEHOUSE-MGMT
+    title: notebookutils.lakehouse management
+    call: [notebookutils.lakehouse.create, notebookutils.lakehouse.update, notebookutils.lakehouse.delete, notebookutils.lakehouse.getWithProperties,
+           notebookutils.lakehouse.listTables, notebookutils.lakehouse.loadTable]
+    class: unsupported
+    message: Creating or changing lakehouse items (and the Fabric load-to-table service) is a Fabric control-plane operation.
+    remediation: Manage lakehouses in OLCF or Fabric outside the remote run; write tables with Spark (df.write.format("delta").saveAsTable(...)).
+  - id: FAB-NBU-HELP
+    title: notebookutils.help
+    call: [notebookutils.help]
+    class: compatibility-shim
+    shim: runtime
+    message: Prints the supported notebookutils surface.
+  - id: FAB-NBU-VARLIB
+    title: Fabric variable libraries
+    call: [notebookutils.variableLibrary, notebookutils.variableLibrary.*]
+    class: unsupported
+    message: Variable libraries are Fabric workspace items.
+    remediation: Pass the values as declared notebook parameters (olcf.run_remote(parameters={...})) or use an OLCF variable set.
+  - id: FAB-NBU-FABRIC-ONLY
+    title: Fabric-only notebookutils areas
+    call: [notebookutils.connections, notebookutils.connections.*, notebookutils.warehouse, notebookutils.warehouse.*, notebookutils.udf, notebookutils.udf.*,
+           notebookutils.data, notebookutils.data.*, notebookutils.cognitiveservices, notebookutils.cognitiveservices.*, notebookutils.visualization,
+           notebookutils.visualization.*, notebookutils.user, notebookutils.user.*]
+    class: unsupported
+    message: This notebookutils area talks to Fabric services (connections, warehouses, user data functions, Azure AI) that are not available on OLCF.
+    remediation: Use an OLCF storage connection (local, s3/minio, adls, onelake) for the data, put other settings in a Spark job definition or variable set, or call the service directly with credentials granted to the job.
+  - id: FAB-NBU-UNKNOWN
+    title: Unknown notebookutils API
+    class: unsupported
+    message: This notebookutils/mssparkutils API is not part of the OLCF shim surface (unknown APIs fail closed).
+    remediation: Replace it with a supported API (notebookutils.help() lists them) or run the notebook in Fabric.
+  - id: FAB-NBU-DYNAMIC
+    title: Dynamic notebookutils access
+    class: warning
+    message: notebookutils is accessed dynamically (getattr/aliasing in a way that cannot be analysed); unsupported APIs raise NotSupportedError at run time.
+  # ------------------------------------------------------------------------------- imports
+  - id: FAB-IMP-SEMPY
+    title: Semantic Link (sempy)
+    import: [sempy, sempy.*, sempy_labs, sempy_labs.*, semantic_link_labs, semantic_link_labs.*, powerbiclient, powerbiclient.*, pbi_core, pbi_core.*]
+    class: unsupported
+    message: Semantic Link / Power BI libraries need the Fabric semantic model service and the notebook's user identity.
+    remediation: Query the data with Spark SQL or read the tables from the lakehouse; for semantic models call the Power BI REST/XMLA endpoints with a granted credential.
+  - id: FAB-IMP-FABRIC-CONNECTOR
+    title: Fabric Spark connectors (Warehouse / KQL)
+    import: [com.microsoft.spark.fabric, com.microsoft.spark.fabric.*, com.microsoft.kusto, com.microsoft.kusto.*, com.microsoft.azure.kusto, com.microsoft.azure.kusto.*]
+    class: unsupported
+    message: The Fabric Warehouse and Eventhouse (KQL) Spark connectors only work inside a Fabric Spark session.
+    remediation: Read the warehouse/KQL tables from OneLake (Delta), or export them to a storage connection (s3/minio, adls, onelake) OLCF can read.
+  - id: FAB-IMP-SYNAPSE-FABRIC
+    title: Synapse / Fabric proprietary libraries
+    import: [synapse.ml.fabric, synapse.ml.fabric.*, synapse.ml.predict, synapse.ml.predict.*, azure.synapse, azure.synapse.*, azure.synapse.ml.predict,
+             azure.synapse.ml.predict.*]
+    class: unsupported
+    message: This library is part of the managed Fabric/Synapse runtime and is not redistributable.
+    remediation: Use the open-source equivalent (e.g. mlflow model loading, SynapseML open-source jars declared in the Environment).
+  - id: FAB-IMP-SYNAPSEML
+    title: SynapseML (open source)
+    import: [synapse.ml, synapse.ml.*, synapse, mmlspark, mmlspark.*]
+    class: warning
+    message: SynapseML is open source, but its jars/Python package must be present in the job's Environment; Fabric preinstalls it.
+    remediation: Add com.microsoft.azure:synapseml_2.13 (matching your Spark version) and the synapseml Python package to the Environment.
+  - id: FAB-IMP-COM-MICROSOFT
+    title: com.microsoft.* JVM API
+    import: [com.microsoft, com.microsoft.*]
+    class: warning
+    message: Microsoft JVM classes are available only if their jars are part of the Environment.
+  - id: FAB-IMP-NBU
+    title: notebookutils import
+    import: [notebookutils, notebookutils.*, mssparkutils, mssparkutils.*]
+    class: native-portable
+    message: notebookutils is preinstalled by the OLCF runtime (the individual APIs are classified separately).
+  - id: FAB-IMP-DATABRICKS
+    title: Databricks-only API
+    import: [dbutils, dbutils.*, databricks, databricks.*]
+    class: unsupported
+    message: dbutils / Databricks libraries are not part of Fabric or OLCF.
+    remediation: Use notebookutils.fs / notebookutils.credentials equivalents.
+  - id: FAB-IMP-BASELINE
+    title: Runtime baseline package
+    import: [pyspark, pyspark.*, delta, delta.*, pandas, pandas.*, numpy, numpy.*, pyarrow, pyarrow.*, packaging, packaging.*, psutil, psutil.*, IPython, IPython.*,
+             ipykernel, ipykernel.*, nbformat, nbformat.*, jupyter_client, jupyter_client.*]
+    class: native-portable
+    message: Part of the OLCF runtime baseline.
+  - id: FAB-IMP-FABRIC-PREINSTALLED
+    title: Package preinstalled in Fabric but not in the OLCF baseline
+    import: [mlflow, mlflow.*, azure, azure.*, msal, msal.*, scipy, scipy.*, sklearn, sklearn.*, matplotlib, matplotlib.*, seaborn, seaborn.*,
+             requests, requests.*, statsmodels, statsmodels.*, xgboost, xgboost.*, lightgbm, lightgbm.*, torch, torch.*, tensorflow, tensorflow.*,
+             prophet, prophet.*, plotly, plotly.*, openpyxl, openpyxl.*, sqlalchemy, sqlalchemy.*, pyodbc, pyodbc.*, shap, shap.*, nltk, nltk.*]
+    class: warning
+    message: Fabric preinstalls this package; OLCF only provides what the Environment declares.
+    remediation: Declare the package (hash-pinned) in the Environment item; native wheels are validated against the worker OS/architecture/ABI.
+  - id: FAB-IMP-THIRDPARTY
+    title: Third-party import
+    class: warning
+    message: This package is not part of the runtime baseline.
+    remediation: Declare it in the Environment (hash-pinned dependency lock).
+  # ------------------------------------------------------------------------------- magics
+  - id: FAB-MAGIC-SQL
+    title: "%%sql / %%pyspark cell magics"
+    magic: {kind: cell, names: [sql, pyspark, python]}
+    class: compatibility-shim
+    shim: magics
+    message: Implemented by the OLCF kernel magics.
+  - id: FAB-MAGIC-CONFIGURE
+    title: "%%configure"
+    magic: {kind: cell, names: [configure]}
+    class: compatibility-shim
+    shim: magics
+    message: Spark settings are applied before the session starts; platform-managed keys are rejected.
+  - id: FAB-MAGIC-CONFIGURE-BAD
+    title: "%%configure with unsupported settings"
+    class: unsupported
+    message: "%%configure sets keys the platform owns or that have no OLCF equivalent."
+    remediation: Remove the offending keys; resources are requested through the capsule policy/resources.
+  - id: FAB-MAGIC-CONFIGURE-JSON
+    title: "%%configure is not valid JSON"
+    class: unsupported
+    message: The %%configure body must be a JSON object.
+    remediation: Fix the JSON in the cell.
+  - id: FAB-MAGIC-RUN-INLINED
+    title: "%run inlined"
+    class: deterministic-rewrite
+    message: The referenced notebook was bundled in the capsule and its cells were inlined at the %run position (same session semantics).
+  - id: FAB-MAGIC-RUN
+    title: "%run of a notebook that is not bundled"
+    magic: {kind: line, names: [run]}
+    class: unsupported
+    message: "%run needs the referenced notebook's content, which is not part of this capsule."
+    remediation: Let the SDK bundle it (olcf.run_remote(bundle_run_targets=True), default) or use notebookutils.notebook.run() for an OLCF notebook of the same name.
+  - id: FAB-MAGIC-PIP-BLOCKED
+    title: "%pip install blocked by policy"
+    class: unsupported
+    message: Notebook-time package installation is blocked by policy; the runtime environment is immutable.
+    remediation: Declare the package in the Environment item (hash-pinned lock) or ask an administrator to set policy.allow_pip_install for this integration.
+  - id: FAB-MAGIC-PIP-ALLOWED
+    title: "%pip install (allowed by policy)"
+    class: warning
+    message: Packages are installed into a per-job layer on the driver only (executors do not see them); the install is recorded in the job.
+    remediation: Prefer a declared Environment for reproducibility.
+  - id: FAB-MAGIC-PIP-READONLY
+    title: "%pip list / show / freeze"
+    class: native-portable
+    message: Read-only pip queries.
+  - id: FAB-MAGIC-SHELL
+    title: Shell escape (%%sh, !cmd, %%bash)
+    magic: {kind: any, names: [sh, bash, script, sx, system, shell]}
+    class: unsupported
+    message: Shell execution on workers is blocked by policy (notebook code is privileged; shell access is an explicit administrator choice).
+    remediation: Use Python/Spark APIs, or ask an administrator to enable shell access for this integration.
+  - id: FAB-MAGIC-SHELL-ALLOWED
+    title: Shell escape (allowed by policy)
+    class: warning
+    message: Runs on the driver node; the result depends on the worker's OS tooling.
+  - id: FAB-MAGIC-LANG
+    title: Non-Python/SQL cell language
+    magic: {kind: cell, names: [spark, scala, sparkr, r, csharp, dotnet]}
+    class: unsupported
+    message: OLCF notebooks execute PySpark and Spark SQL cells; Scala, SparkR and C# cells are not executed.
+    remediation: Port the cell to PySpark/SQL, or package the Scala code as a jar and run it as a Spark job definition.
+  - id: FAB-MAGIC-IPYTHON
+    title: IPython built-in magic
+    magic: {kind: any, names: [time, timeit, matplotlib, env, who, whos, who_ls, lsmagic, load_ext, reload_ext, autoreload, history, pwd, cd, ls, alias_magic,
+                               debug, pdb, prun, pycat, writefile, html, markdown, capture, javascript, js, latex, svg, pinfo, pinfo2, psearch, sync, tb, xmode, quickref, magic, doctest_mode, unload_ext, load, save, store, edit, recall, rerun, rehashx, reset, reset_selective, run_line_magic, colors, config, dhist, dirs, popd, pushd, page, pdef, pdoc, pfile, pprint, precision, psource, killbgscripts, notebook, automagic, autocall, autoindent, bookmark, clear, cls]}
+    class: native-portable
+    message: Provided by IPython.
+  - id: FAB-MAGIC-UNKNOWN
+    title: Unknown magic
+    class: warning
+    message: This magic is not provided by the OLCF kernel; the cell fails at run time if it is not an installed extension.
+  # ------------------------------------------------------------------------------- paths
+  - id: FAB-PATH-REL
+    title: Lakehouse-relative path (Files/ or Tables/)
+    class: compatibility-shim
+    shim: paths
+    message: Resolved against the job's default lakehouse by the Spark session (working directory) and olcf.runtime_lib.paths.
+  - id: FAB-PATH-ABFSS
+    title: OneLake abfss:// URL
+    class: compatibility-shim
+    shim: paths
+    message: Read directly from OneLake by the Spark workers using the OneLake connection (Entra service principal); no hairpin through the control plane.
+  - id: FAB-PATH-MOUNT-LOCAL
+    title: /lakehouse/default/... on a local lakehouse
+    class: deterministic-rewrite
+    shim: paths
+    message: The Fabric FUSE mount path was rewritten to the real local path of the lakehouse (same line, same position in the source map).
+  - id: FAB-PATH-MOUNT-REMOTE
+    title: /lakehouse/default/... on an object-store or OneLake lakehouse
+    class: unsupported
+    message: The Fabric FUSE mount (/lakehouse/default) does not exist for object-store lakehouses, so Python file APIs cannot reach the data.
+    remediation: Use Spark (spark.read...), notebookutils.fs.* or a relative Files/ path with Spark APIs; for pandas use pandas.read_csv("abfss://...") with storage options or copy with notebookutils.fs.cp to a local path first.
+  - id: FAB-PATH-MOUNT-NOLAKEHOUSE
+    title: /lakehouse/default/... without a default lakehouse
+    class: unsupported
+    message: The notebook uses /lakehouse/default but no default lakehouse is attached to this run.
+    remediation: Attach a default lakehouse in Fabric (it is captured from the notebook context) or map the Fabric lakehouse to an OLCF lakehouse in the integration settings.
+  - id: FAB-PATH-MOUNT-DYNAMIC
+    title: Computed /lakehouse/ path
+    class: warning
+    message: A path under /lakehouse/ is built dynamically and cannot be rewritten statically.
+    remediation: Use notebookutils.fs / Spark APIs or build the path from a literal that starts with Files/ or Tables/.
+  # ------------------------------------------------------------------------------- Spark configuration
+  - id: FAB-CONF-FABRIC-ONLY
+    title: Fabric-specific Spark setting
+    conf: [spark.fabric.*, spark.synapse.*, spark.ms.*, spark.microsoft.*, spark.sql.parquet.vorder.*, spark.native.enabled, spark.gluten.*, spark.sql.analyzer.fabric.*,
+           spark.trident.*, spark.notebook.*]
+    class: fabric-only-fallback
+    message: This setting configures a Fabric platform optimisation (V-Order, native execution engine, session pools). OLCF ignores it; results are identical, performance may differ.
+  - id: FAB-CONF-PROTECTED
+    title: Platform-managed Spark setting
+    class: unsupported
+    message: This Spark setting is owned by the platform (master, driver networking, authentication, packages) and cannot be set from a notebook.
+    remediation: Request resources through the capsule resources/policy; declare packages in the Environment.
+  - id: FAB-CONF-NOTAPPROVED
+    title: Spark setting not on the runtime's approved list
+    class: warning
+    message: The runtime's approved Spark configuration list does not include this key; it may be dropped (reported in the job's rejected_conf).
+  - id: FAB-CONF-OSS
+    title: Open-source Spark setting
+    class: native-portable
+    message: Standard Spark configuration.
+  # ------------------------------------------------------------------------------- SQL
+  - id: FAB-SQL-VORDER
+    title: OPTIMIZE ... VORDER
+    class: deterministic-rewrite
+    message: The Fabric-only VORDER clause was removed (V-Order is a write-time layout optimisation and does not change table contents).
+  - id: FAB-SQL-VORDER-PROP
+    title: V-Order table property
+    class: fabric-only-fallback
+    message: delta.parquet.vorder.* table properties are Fabric specific; Delta stores them as plain properties and OLCF ignores them.
+  - id: FAB-SQL-DELTA
+    title: Delta SQL
+    class: native-portable
+    message: Standard Delta Lake SQL (MERGE, OPTIMIZE, VACUUM, RESTORE, DESCRIBE HISTORY).
+  - id: FAB-SQL-PARSE
+    title: SQL could not be parsed for analysis
+    class: warning
+    message: The statement could not be parsed by the analyzer (dialect extension or templated SQL); Spark validates it at run time.
+  - id: FAB-SQL-FABRIC-FN
+    title: Fabric-only SQL feature
+    class: unsupported
+    message: This SQL feature exists only in Fabric (shortcuts, Warehouse cross-database queries, T-SQL).
+    remediation: Use Spark SQL over the lakehouse tables.
+  # ------------------------------------------------------------------------------- Python constructs
+  - id: FAB-PY-SYNAPSESQL
+    title: Fabric Warehouse connector call (.synapsesql)
+    api: [synapsesql]
+    class: unsupported
+    message: spark.read.synapsesql()/df.write.synapsesql() use the Fabric Warehouse connector.
+    remediation: Read the warehouse tables from OneLake as Delta, or export them to a storage connection OLCF can read (OLCF has no JDBC connection type).
+  - id: FAB-PY-KUSTO
+    title: Eventhouse / KQL connector
+    class: unsupported
+    message: The Kusto/KQL Spark connector for Fabric Eventhouse is not available.
+    remediation: Query the Eventhouse through its REST/Kusto endpoint or export to OneLake.
+  - id: FAB-PY-UDF
+    title: User-defined function
+    class: native-portable
+    message: UDFs run on the executors; Python packages they import must exist on every worker (declare them in the Environment).
+  - id: FAB-PY-DELTA
+    title: Delta Lake API
+    class: native-portable
+    message: delta-spark API.
+  - id: FAB-PY-SHELL
+    title: Shell execution from Python
+    class: unsupported
+    message: os.system / os.popen / subprocess with a shell are blocked by policy.
+    remediation: Call the library API directly, or ask an administrator to enable shell access.
+  - id: FAB-PY-SUBPROCESS
+    title: Process execution from Python
+    class: warning
+    message: Starts an external process on the driver; availability depends on the worker image.
+  - id: FAB-PY-PIP
+    title: Dynamic package installation
+    class: unsupported
+    message: Installing packages from code (pip.main, subprocess pip) is blocked by policy.
+    remediation: Declare the package in the Environment item.
+  - id: FAB-PY-PIP-ALLOWED
+    title: Dynamic package installation (allowed by policy)
+    class: warning
+    message: Allowed by policy; installs land in the driver's job layer only.
+  - id: FAB-PY-DYNAMIC-EXEC
+    title: Dynamic code execution (exec/eval)
+    class: warning
+    message: Code built at run time cannot be analysed; unsupported APIs fail closed at run time.
+  - id: FAB-PY-NETWORK
+    title: External network endpoint
+    class: warning
+    message: The notebook contacts an external endpoint; the worker network policy must allow it.
+    remediation: Review the egress policy of the worker pool; use an OLCF connection for credentials.
+  - id: FAB-PY-ONELAKE-API
+    title: Direct OneLake / Fabric REST call
+    class: warning
+    message: The notebook calls Fabric/OneLake endpoints directly; it needs a credential granted to the job (notebookutils.credentials.getToken only supports the storage audience).
+  - id: FAB-PY-DISPLAYHTML
+    title: displayHTML
+    class: compatibility-shim
+    shim: runtime
+    message: displayHTML is provided by the shim and renders HTML in the output notebook.
+  - id: FAB-PY-SYNTAX
+    title: Python syntax error
+    class: warning
+    message: The cell does not parse as Python; analysis of this cell is incomplete (it will fail at run time if the error is real).
+  - id: FAB-LANG-CELL
+    title: Cell language
+    class: unsupported
+    message: The cell is declared in a language OLCF notebooks do not execute.
+    remediation: Port the cell to PySpark or Spark SQL.
+  - id: FAB-FMT-MAGIC-NORMALISED
+    title: Git-source MAGIC prefix normalised
+    class: deterministic-rewrite
+    message: The "# MAGIC " prefix used by Fabric Git exports for non-Python cells was removed so the cell body is executable.
+  - id: FAB-DATA-WAREHOUSE-REF
+    title: Warehouse reference
+    class: warning
+    message: The notebook references a Fabric Warehouse; OLCF cannot reach it through the Warehouse connector.

@@ -1,0 +1,54 @@
+{
+  "analyzer_version": "1.0.0",
+  "blocked": false,
+  "blockers": [],
+  "child_notebooks": [],
+  "counts": {
+    "compatibility-shim": 8,
+    "deterministic-rewrite": 1,
+    "fabric-only-fallback": 0,
+    "native-portable": 0,
+    "unsupported": 0,
+    "warning": 0
+  },
+  "data_references": {
+    "paths": [
+      [
+        "mount",
+        "/lakehouse/default/Files/orders.csv"
+      ]
+    ],
+    "tables": []
+  },
+  "imports": [
+    "csv",
+    "json"
+  ],
+  "inlined_runs": [],
+  "packages": [],
+  "parameters": [],
+  "pip_requirements": [],
+  "rewrites": [
+    [
+      "FAB-PATH-MOUNT-LOCAL",
+      1,
+      1
+    ]
+  ],
+  "rule_counts": {
+    "FAB-NBU-FS": 4,
+    "FAB-NBU-LAKEHOUSE": 2,
+    "FAB-NBU-NOTEBOOK": 1,
+    "FAB-NBU-RUNTIME": 1,
+    "FAB-PATH-MOUNT-LOCAL": 1
+  },
+  "ruleset_version": "1.0.0",
+  "secret_refs": [],
+  "shims_required": [
+    "fs",
+    "lakehouse",
+    "notebook",
+    "paths",
+    "runtime"
+  ]
+}

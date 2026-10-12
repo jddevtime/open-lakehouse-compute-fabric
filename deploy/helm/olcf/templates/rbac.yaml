@@ -1,0 +1,76 @@
+{{/* SPDX-License-Identifier: Apache-2.0 */}}
+{{/* Copyright (c) 2026 Justin Dodrill */}}
+{{- if and .Values.rbac.create .Values.kubernetesProvider.enabled }}
+{{- $ns := include "olcf.computeNamespace" . }}
+# The control plane creates a Secret, a headless Service and a driver Pod per job and reads the pod log.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "olcf.fullname" . }}-compute
+  namespace: {{ $ns }}
+  labels:
+    {{- include "olcf.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["secrets", "services"]
+    verbs: ["create", "get", "list", "delete"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["create", "get", "list", "watch", "delete"]
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "olcf.fullname" . }}-compute
+  namespace: {{ $ns }}
+  labels:
+    {{- include "olcf.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "olcf.fullname" . }}-compute
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "olcf.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+---
+# The Spark driver pod (client mode) creates and owns its executor pods.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "olcf.fullname" . }}-spark
+  namespace: {{ $ns }}
+  labels:
+    {{- include "olcf.labels" . | nindent 4 }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "olcf.fullname" . }}-spark
+  namespace: {{ $ns }}
+  labels:
+    {{- include "olcf.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "services", "configmaps", "persistentvolumeclaims"]
+    verbs: ["create", "get", "list", "watch", "delete", "deletecollection", "patch", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "olcf.fullname" . }}-spark
+  namespace: {{ $ns }}
+  labels:
+    {{- include "olcf.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "olcf.fullname" . }}-spark
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "olcf.fullname" . }}-spark
+    namespace: {{ $ns }}
+{{- end }}

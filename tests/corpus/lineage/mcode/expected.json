@@ -1,0 +1,590 @@
+{
+ "bad_empty": {
+  "problems": [
+   "the query is empty"
+  ],
+  "reason": "the query is empty",
+  "sources": []
+ },
+ "bad_garbage": {
+  "problems": [
+   "cannot parse the M query: unexpected 'at' at offset 6"
+  ],
+  "reason": "cannot parse the M query: unexpected 'at' at offset 6",
+  "sources": []
+ },
+ "bad_too_deep": {
+  "problems": [
+   "cannot parse the M query: expression nested too deeply"
+  ],
+  "reason": "cannot parse the M query: expression nested too deeply",
+  "sources": []
+ },
+ "bad_unclosed_paren": {
+  "problems": [
+   "cannot parse the M query: expected ')' at offset 11, found 'in'"
+  ],
+  "reason": "cannot parse the M query: expected ')' at offset 11, found 'in'",
+  "sources": []
+ },
+ "bad_unexpected_in": {
+  "problems": [
+   "cannot parse the M query: unexpected keyword 'in' at offset 8"
+  ],
+  "reason": "cannot parse the M query: unexpected keyword 'in' at offset 8",
+  "sources": []
+ },
+ "bad_unterminated_let": {
+  "problems": [
+   "cannot parse the M query: unterminated let"
+  ],
+  "reason": "cannot parse the M query: unterminated let",
+  "sources": []
+ },
+ "c_dataflow": {
+  "closed": true,
+  "cols": {},
+  "reason": "the query result could not be determined",
+  "sources": []
+ },
+ "c_dynamic_table_name": {
+  "closed": true,
+  "cols": {},
+  "reason": "the query returns a connection, not a table",
+  "sources": [
+   "external:sql:srv/erp~"
+  ]
+ },
+ "c_excel_local": {
+  "closed": true,
+  "cols": {},
+  "reason": "the query result could not be determined",
+  "sources": [
+   "file:file:C://data//book.xlsx"
+  ]
+ },
+ "c_fabric_ep_guid": {
+  "sources": [
+   "table:table:sales~"
+  ]
+ },
+ "c_fabric_wh": {
+  "closed": true,
+  "cols": {
+   "id": [
+    "mart.sales.id"
+   ]
+  },
+  "sources": [
+   "table:table:mart.sales"
+  ]
+ },
+ "c_folder": {
+  "closed": true,
+  "cols": {},
+  "reason": "the query returns a connection, not a table",
+  "sources": [
+   "external:file:C:\\\\drop~"
+  ]
+ },
+ "c_lakehouse_file": {
+  "sources": [
+   "file:file:Files/raw/a.csv"
+  ]
+ },
+ "c_lakehouse_nav": {
+  "sources": [
+   "table:table:sales"
+  ]
+ },
+ "c_lakehouse_schema": {
+  "sources": [
+   "table:table:gold.sales"
+  ]
+ },
+ "c_literal_list": {
+  "closed": true,
+  "cols": {},
+  "reason": "inline table with unknown columns",
+  "sources": []
+ },
+ "c_native_cte": {
+  "closed": true,
+  "cols": {
+   "dbl": [
+    "dbo.sales.amt"
+   ],
+   "id": [
+    "dbo.sales.id"
+   ]
+  },
+  "sources": [
+   "external:sql:srv/erp/sales"
+  ]
+ },
+ "c_native_dyn": {
+  "closed": true,
+  "cols": {},
+  "dynamic": [
+   "Value.NativeQuery: the query text is not a literal"
+  ],
+  "reason": "the native query text is only known at run time",
+  "sources": [
+   "external:sql:srv/erp~"
+  ]
+ },
+ "c_native_star": {
+  "closed": true,
+  "cols": {},
+  "reason": "the native query selects columns that cannot be listed (SELECT * over an unknown schema)",
+  "sources": [
+   "external:sql:srv/erp/sales"
+  ]
+ },
+ "c_no_source": {
+  "closed": true,
+  "cols": {
+   "a": [],
+   "b": []
+  },
+  "sources": []
+ },
+ "c_odata": {
+  "closed": true,
+  "cols": {},
+  "reason": "the query result could not be determined",
+  "sources": [
+   "external:web:https://svc.example.com/odata~"
+  ]
+ },
+ "c_onelake_csv": {
+  "sources": [
+   "file:file:Files/raw/a.csv"
+  ]
+ },
+ "c_onelake_delta": {
+  "sources": [
+   "table:table:sales"
+  ]
+ },
+ "c_param_default": {
+  "sources": [
+   "external:sql:srv1/db1/X"
+  ]
+ },
+ "c_parquet": {
+  "sources": [
+   "file:file:/data/x.parquet"
+  ]
+ },
+ "c_pg": {
+  "sources": [
+   "external:postgresql:pg.example.com:5432/db/public.orders"
+  ]
+ },
+ "c_query_fabric": {
+  "closed": true,
+  "cols": {
+   "id": [
+    "mart.sales.id"
+   ]
+  },
+  "sources": [
+   "table:table:mart.sales"
+  ]
+ },
+ "c_query_opt": {
+  "closed": true,
+  "cols": {
+   "a": [],
+   "b": []
+  },
+  "sources": [
+   "external:sql:srv/erp/t1",
+   "external:sql:srv/erp/t2"
+  ]
+ },
+ "c_shared": {
+  "closed": true,
+  "cols": {
+   "id": [
+    "dbo.Orders.id"
+   ]
+  },
+  "sources": [
+   "external:sql:srv/erp/Orders"
+  ]
+ },
+ "c_sharepoint_excel": {
+  "closed": true,
+  "cols": {},
+  "dynamic": [
+   "excel.workbook: the file is not a literal path"
+  ],
+  "reason": "the query result could not be determined",
+  "sources": [
+   "external:sharepoint:https://contoso.sharepoint.com/sites/x~"
+  ]
+ },
+ "c_snowflake": {
+  "closed": true,
+  "cols": {},
+  "reason": "the query returns a connection, not a table",
+  "sources": [
+   "external:snowflake:acc.snowflakecomputing.com/WH~"
+  ]
+ },
+ "c_ssas": {
+  "closed": true,
+  "cols": {},
+  "reason": "the query returns a connection, not a table",
+  "sources": [
+   "external:analysisservices:asazure://eastus.asazure.windows.net/srv/model1~"
+  ]
+ },
+ "c_unknown_function_over_source": {
+  "closed": true,
+  "cols": {},
+  "reason": "Foo.Transform is not understood",
+  "sources": [
+   "external:sql:srv/erp/T"
+  ],
+  "unsupported": [
+   "Foo.Transform: the function is not understood; the tables it reads are still reported"
+  ]
+ },
+ "c_web_bare": {
+  "closed": true,
+  "cols": {},
+  "reason": "the query returns a connection, not a table",
+  "sources": [
+   "external:web:https://api.example.com/v1/items~"
+  ]
+ },
+ "c_web_json_fromlist": {
+  "closed": true,
+  "cols": {},
+  "reason": "the columns of a table built from data are not known",
+  "sources": [
+   "external:web:https://api.example.com/v1/items"
+  ]
+ },
+ "t_add_unknown_ref": {
+  "closed": true,
+  "cols": {
+   "a": [
+    "dbo.T.a"
+   ],
+   "c": []
+  },
+  "sources": [
+   "external:sql:srv/erp/T"
+  ],
+  "unsupported": [
+   "an expression refers to column(s) zzz that could not be traced to a source column"
+  ]
+ },
+ "t_buffer": {
+  "sources": [
+   "external:sql:srv/erp/T"
+  ]
+ },
+ "t_combine": {
+  "sources": [
+   "external:sql:srv/erp/T",
+   "external:sql:srv/erp/U"
+  ]
+ },
+ "t_dup": {
+  "closed": false,
+  "cols": {
+   "a2": [
+    "dbo.T.a"
+   ]
+  },
+  "sources": [
+   "external:sql:srv/erp/T"
+  ]
+ },
+ "t_each_rec": {
+  "closed": true,
+  "cols": {
+   "a": [
+    "dbo.T.a"
+   ],
+   "c": [
+    "dbo.T.a"
+   ]
+  },
+  "sources": [
+   "external:sql:srv/erp/T"
+  ]
+ },
+ "t_expand": {
+  "closed": true,
+  "cols": {
+   "id": []
+  },
+  "reason": "Table.ExpandRecordColumn: changes the columns in a way that is not tracked",
+  "sources": [
+   "external:sql:srv/erp/T"
+  ],
+  "unsupported": [
+   "Table.ExpandRecordColumn: changes the columns in a way that is not tracked"
+  ]
+ },
+ "t_filter_keep": {
+  "sources": [
+   "external:sql:srv/erp/T"
+  ]
+ },
+ "t_group": {
+  "closed": true,
+  "cols": {
+   "k": [
+    "dbo.T.k"
+   ],
+   "total": [
+    "dbo.T.v"
+   ]
+  },
+  "sources": [
+   "external:sql:srv/erp/T"
+  ]
+ },
+ "t_if_expr": {
+  "closed": true,
+  "cols": {
+   "a": [
+    "dbo.T.a"
+   ],
+   "b": [
+    "dbo.T.b"
+   ],
+   "c": [
+    "dbo.T.a",
+    "dbo.T.b"
+   ]
+  },
+  "sources": [
+   "external:sql:srv/erp/T"
+  ]
+ },
+ "t_index_col": {
+  "closed": true,
+  "cols": {
+   "a": [
+    "dbo.T.a"
+   ],
+   "idx": []
+  },
+  "sources": [
+   "external:sql:srv/erp/T"
+  ]
+ },
+ "t_join": {
+  "closed": true,
+  "cols": {},
+  "reason": "Table.Join: the columns of a join result are not tracked",
+  "sources": [
+   "external:sql:srv/erp/T",
+   "external:sql:srv/erp/U"
+  ],
+  "unsupported": [
+   "Table.Join: the columns of a join result are not tracked"
+  ]
+ },
+ "t_let_nested": {
+  "sources": [
+   "external:sql:srv/erp/T"
+  ]
+ },
+ "t_merge_cols": {
+  "closed": true,
+  "cols": {
+   "first": [],
+   "last": []
+  },
+  "reason": "Table.CombineColumns: changes the columns in a way that is not tracked",
+  "sources": [
+   "external:sql:srv/erp/T"
+  ],
+  "unsupported": [
+   "Table.CombineColumns: changes the columns in a way that is not tracked"
+  ]
+ },
+ "t_promote": {
+  "reason": "Table.PromoteHeaders: the column names come from the data",
+  "sources": [
+   "external:sql:srv/erp/T"
+  ],
+  "unsupported": [
+   "Table.PromoteHeaders: the column names come from the data"
+  ]
+ },
+ "t_quoted_ids": {
+  "closed": true,
+  "cols": {
+   "a": [
+    "dbo.T.a"
+   ]
+  },
+  "sources": [
+   "external:sql:srv/erp/T"
+  ]
+ },
+ "t_remove_cols": {
+  "sources": [
+   "external:sql:srv/erp/T"
+  ]
+ },
+ "t_remove_dups": {
+  "sources": [
+   "external:sql:srv/erp/T"
+  ]
+ },
+ "t_rename_only": {
+  "closed": false,
+  "cols": {
+   "A": [
+    "dbo.T.a"
+   ],
+   "B": [
+    "dbo.T.b"
+   ]
+  },
+  "sources": [
+   "external:sql:srv/erp/T"
+  ]
+ },
+ "t_reorder_remove": {
+  "closed": true,
+  "cols": {
+   "a": [
+    "dbo.T.a"
+   ],
+   "b": [
+    "dbo.T.b"
+   ],
+   "c": [
+    "dbo.T.c"
+   ]
+  },
+  "sources": [
+   "external:sql:srv/erp/T"
+  ]
+ },
+ "t_select_cols": {
+  "closed": true,
+  "cols": {
+   "a": [
+    "dbo.T.a"
+   ],
+   "b": [
+    "dbo.T.b"
+   ]
+  },
+  "sources": [
+   "external:sql:srv/erp/T"
+  ]
+ },
+ "t_select_then_add": {
+  "closed": true,
+  "cols": {
+   "a": [
+    "dbo.T.a"
+   ],
+   "b": [
+    "dbo.T.b"
+   ],
+   "c": [
+    "dbo.T.a",
+    "dbo.T.b"
+   ]
+  },
+  "sources": [
+   "external:sql:srv/erp/T"
+  ]
+ },
+ "t_split": {
+  "closed": true,
+  "cols": {
+   "full": []
+  },
+  "reason": "Table.SplitColumn: changes the columns in a way that is not tracked",
+  "sources": [
+   "external:sql:srv/erp/T"
+  ],
+  "unsupported": [
+   "Table.SplitColumn: changes the columns in a way that is not tracked"
+  ]
+ },
+ "t_swap_rename": {
+  "closed": false,
+  "cols": {
+   "a": [
+    "dbo.T.b"
+   ],
+   "b": [
+    "dbo.T.a"
+   ]
+  },
+  "sources": [
+   "external:sql:srv/erp/T"
+  ]
+ },
+ "t_transform_cols": {
+  "closed": true,
+  "cols": {
+   "a": [
+    "dbo.T.a"
+   ],
+   "b": [
+    "dbo.T.b"
+   ]
+  },
+  "sources": [
+   "external:sql:srv/erp/T"
+  ]
+ },
+ "t_try_otherwise": {
+  "closed": true,
+  "cols": {
+   "a": [
+    "dbo.T.a"
+   ],
+   "c": [
+    "dbo.T.a"
+   ]
+  },
+  "sources": [
+   "external:sql:srv/erp/T"
+  ]
+ },
+ "t_types": {
+  "closed": true,
+  "cols": {
+   "a": [
+    "dbo.T.a"
+   ]
+  },
+  "sources": [
+   "external:sql:srv/erp/T"
+  ]
+ },
+ "t_unpivot": {
+  "closed": true,
+  "cols": {
+   "id": [],
+   "q1": [],
+   "q2": []
+  },
+  "reason": "Table.UnpivotOtherColumns: changes the columns in a way that is not tracked",
+  "sources": [
+   "external:sql:srv/erp/T"
+  ],
+  "unsupported": [
+   "Table.UnpivotOtherColumns: changes the columns in a way that is not tracked"
+  ]
+ }
+}

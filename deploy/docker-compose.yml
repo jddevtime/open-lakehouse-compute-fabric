@@ -1,0 +1,246 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Justin Dodrill
+#
+# Open Lakehouse Compute Fabric on Docker.  Run from the repository root or this directory; copy .env.example to .env first (scripts/gen-env.sh does it with random secrets).
+#
+#   all-in-one (one container, SQLite, embedded Spark worker, loopback only):
+#       docker compose -f deploy/docker-compose.yml --profile allinone up -d --build
+#   cluster (control plane + PostgreSQL + MinIO + two workers; built-in TLS between the pieces):
+#       docker compose -f deploy/docker-compose.yml --profile cluster up -d --build
+#   optional TLS reverse proxy in front of either (Caddy; automatic certificates, or its internal CA for local use):
+#       docker compose -f deploy/docker-compose.yml --profile allinone --profile tls up -d
+#
+# Hardening applied to every OLCF container: non-root (uid 10001), read-only root filesystem, no capabilities, no-new-privileges, tmpfs for /tmp.
+# Persistent state lives only in the named volumes.  Secrets come from .env (never baked into an image, never in a command line).
+# Compose interpolates ALL services, active or not, so variables that only the cluster profile needs (POSTGRES_PASSWORD, MINIO_ROOT_PASSWORD) are not marked
+# "required" here; PostgreSQL and MinIO refuse to start without them.  OLCF_MASTER_KEY and OLCF_JWT_SIGNING_KEY are needed by both profiles and are required.
+# NOTE: this file passes `docker compose config` for every profile; the images and the running stack have not been built or started in the environment it was written in.
+
+name: olcf
+
+x-olcf-image: &olcf-image
+  image: ${OLCF_IMAGE:-olcf:local}
+  build:
+    context: ..
+    dockerfile: deploy/Dockerfile
+    args:
+      EXTRAS: ${OLCF_EXTRAS:-postgres,s3,k8s}
+      BAKE_RUNTIME: ${OLCF_BAKE_RUNTIME:-}
+      RUNTIME_TRUST_DIR: ${OLCF_RUNTIME_TRUST_BUILD_DIR:-deploy/runtime-trust}      # public keys (*.pub) of your runtime-manifest signer, inside the build context
+
+x-olcf-hardening: &hardening
+  init: false                      # the image's ENTRYPOINT already runs tini
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+  restart: unless-stopped
+  logging:
+    driver: json-file
+    options: {max-size: "20m", max-file: "5"}
+
+x-olcf-common-env: &common-env
+  OLCF_ENVIRONMENT: ${OLCF_ENVIRONMENT:-production}      # development = trust the OLCF development runtime key (try-out only); production needs a trust directory
+  OLCF_LOG_JSON: "true"
+  OLCF_MASTER_KEY: ${OLCF_MASTER_KEY:?run deploy/scripts/gen-env.sh or set OLCF_MASTER_KEY in .env}
+  OLCF_JWT_SIGNING_KEY: ${OLCF_JWT_SIGNING_KEY:?run deploy/scripts/gen-env.sh or set OLCF_JWT_SIGNING_KEY in .env}
+  OLCF_ADMIN_PASSWORD: ${OLCF_ADMIN_PASSWORD:-}
+
+services:
+  # ------------------------------------------------------------------------------------------------ allinone
+  olcf:
+    <<: [*olcf-image, *hardening]
+    profiles: [allinone]
+    hostname: olcf-allinone        # the embedded worker's state directory is named after the hostname: keep it stable across re-creation
+    environment:
+      <<: *common-env
+      OLCF_PUBLIC_URL: ${OLCF_PUBLIC_URL:-}
+    ports:
+      - "${OLCF_BIND:-127.0.0.1}:${OLCF_PORT:-8470}:8470"
+    volumes:
+      - olcf-data:/data
+    tmpfs:
+      - /tmp:size=2g,mode=1777,uid=10001,gid=10001
+    stop_grace_period: 60s
+    deploy:
+      resources:
+        limits: {memory: "${OLCF_MEMORY_LIMIT:-8g}"}
+
+  # ------------------------------------------------------------------------------------------------ cluster
+  control-plane:
+    <<: [*olcf-image, *hardening]
+    profiles: [cluster]
+    hostname: olcf-control
+    depends_on:
+      postgres: {condition: service_healthy}
+      minio: {condition: service_healthy}
+    environment:
+      <<: *common-env
+      OLCF_DB__URL: postgresql+psycopg://olcf:${POSTGRES_PASSWORD:-}@postgres:5432/olcf
+      OLCF_TLS__ENABLED: "true"
+      OLCF_TLS_ENABLED: "true"
+      OLCF_TLS__EXTRA_SANS: '["control-plane","olcf-control","localhost"]'
+      OLCF_PUBLIC_URL: ${OLCF_PUBLIC_URL:-https://localhost:8470}
+      OLCF_COMPUTE__EMBEDDED_WORKER: "false"
+      OLCF_SERVER__TRUSTED_PROXIES: ${OLCF_TRUSTED_PROXIES:-0}
+    ports:
+      - "${OLCF_BIND:-127.0.0.1}:${OLCF_PORT:-8470}:8470"
+    volumes:
+      - olcf-data:/data
+    tmpfs:
+      - /tmp:size=1g,mode=1777,uid=10001,gid=10001
+    stop_grace_period: 60s
+
+  postgres:
+    image: postgres:17-alpine
+    profiles: [cluster]
+    restart: unless-stopped
+    cap_drop: [ALL]
+    cap_add: [CHOWN, SETUID, SETGID, FOWNER, DAC_OVERRIDE]
+    security_opt: ["no-new-privileges:true"]
+    environment:
+      POSTGRES_USER: olcf
+      POSTGRES_DB: olcf
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}
+    volumes:
+      - olcf-pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U olcf -d olcf"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  minio:
+    image: minio/minio:latest
+    profiles: [cluster]
+    restart: unless-stopped
+    command: ["server", "/data", "--console-address", ":9001"]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-olcfminio}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-}
+    ports:
+      - "127.0.0.1:${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - olcf-minio:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  minio-init:
+    image: minio/mc:latest
+    profiles: [cluster]
+    depends_on:
+      minio: {condition: service_healthy}
+    restart: "no"
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        mc alias set local http://minio:9000 "$$MINIO_ROOT_USER" "$$MINIO_ROOT_PASSWORD" &&
+        mc mb --ignore-existing local/${OLCF_LAKEHOUSE_BUCKET:-olcf-lakehouse}
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-olcfminio}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-}
+
+  # one-shot: mints a single-use enrolment token per worker and the CA certificate into the olcf-enroll volume
+  enroll:
+    <<: *olcf-image
+    profiles: [cluster]
+    restart: "no"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    network_mode: "service:control-plane"      # talk to the control plane on its own loopback (the CLI context created by `olcf init` points there)
+    depends_on:
+      control-plane: {condition: service_healthy}
+    entrypoint: ["/usr/local/bin/olcf-enroll"]
+    command: ["worker-1", "worker-2"]
+    environment:
+      OLCF_DATA_DIR: /data
+      OLCF_CONFIG_DIR: /data/.cli
+      OLCF_ENROLL_DIR: /enroll
+    volumes:
+      - olcf-data:/data
+      - olcf-enroll:/enroll
+    tmpfs:
+      - /tmp:size=64m,mode=1777,uid=10001,gid=10001
+
+  worker-1: &worker
+    image: ${OLCF_WORKER_IMAGE:-olcf-worker:local}
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.worker
+      args:
+        RUNTIME_TRUST_DIR: ${OLCF_RUNTIME_TRUST_BUILD_DIR:-deploy/runtime-trust}
+    profiles: [cluster]
+    hostname: worker-1
+    <<: *hardening
+    depends_on:
+      enroll: {condition: service_completed_successfully}
+    environment:
+      OLCF_WORKER_NAME: worker-1
+      OLCF_ENVIRONMENT: ${OLCF_ENVIRONMENT:-production}
+      OLCF_WORKER_URL: https://control-plane:8470
+      OLCF_WORKER_CA_PEM: /enroll/ca.pem
+      OLCF_WORKER_POOL: ${OLCF_WORKER_POOL:-default}
+      OLCF_WORKER_MAX_JOBS: ${OLCF_WORKER_MAX_JOBS:-2}
+      OLCF_ENROLL_DIR: /enroll
+    volumes:
+      - olcf-worker-1:/var/lib/olcf-worker
+      - olcf-enroll:/enroll:ro
+    tmpfs:
+      - /tmp:size=4g,mode=1777,uid=10001,gid=10001
+    stop_grace_period: 60s
+
+  worker-2:
+    <<: *worker
+    hostname: worker-2
+    environment:
+      OLCF_WORKER_NAME: worker-2
+      OLCF_ENVIRONMENT: ${OLCF_ENVIRONMENT:-production}
+      OLCF_WORKER_URL: https://control-plane:8470
+      OLCF_WORKER_CA_PEM: /enroll/ca.pem
+      OLCF_WORKER_POOL: ${OLCF_WORKER_POOL:-default}
+      OLCF_WORKER_MAX_JOBS: ${OLCF_WORKER_MAX_JOBS:-2}
+      OLCF_ENROLL_DIR: /enroll
+    volumes:
+      - olcf-worker-2:/var/lib/olcf-worker
+      - olcf-enroll:/enroll:ro
+
+  # ------------------------------------------------------------------------------------------------ optional TLS proxy (either profile)
+  proxy:
+    image: caddy:2-alpine
+    profiles: [tls]
+    restart: unless-stopped
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+    security_opt: ["no-new-privileges:true"]
+    read_only: true
+    environment:
+      OLCF_DOMAIN: ${OLCF_DOMAIN:-localhost}
+      OLCF_UPSTREAM: ${OLCF_UPSTREAM:-http://olcf:8470}      # cluster profile: https://control-plane:8470
+      OLCF_UPSTREAM_TLS_NAME: ${OLCF_UPSTREAM_TLS_NAME:-}
+    ports:
+      - "${OLCF_PROXY_BIND:-127.0.0.1}:${OLCF_HTTPS_PORT:-443}:443"
+      - "${OLCF_PROXY_BIND:-127.0.0.1}:${OLCF_HTTP_PORT:-80}:80"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - olcf-caddy-data:/data
+      - olcf-caddy-config:/config
+      - olcf-data:/olcf-data:ro                 # the built-in CA certificate, to verify the cluster profile's upstream
+    tmpfs:
+      - /tmp:size=64m
+
+volumes:
+  olcf-data:
+  olcf-pg:
+  olcf-minio:
+  olcf-enroll:
+  olcf-worker-1:
+  olcf-worker-2:
+  olcf-caddy-data:
+  olcf-caddy-config:

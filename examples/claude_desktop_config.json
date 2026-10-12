@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "olcf": {
+      "command": "/Users/YOU/.local/share/olcf/current/venv/bin/olcf",
+      "args": ["mcp", "stdio"],
+      "env": {
+        "OLCF_MCP_URL": "http://127.0.0.1:8470/mcp",
+        "OLCF_MCP_TOKEN": "REPLACE-WITH-A-TOKEN-FROM: olcf token create claude-desktop --scope mcp"
+      }
+    }
+  }
+}

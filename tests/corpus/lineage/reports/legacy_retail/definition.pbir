@@ -1,0 +1,13 @@
+{
+  "version": "1.0",
+  "datasetReference": {
+    "byConnection": {
+      "connectionString": "Data Source=powerbi://api.powerbi.com/v1.0/myorg/Retail Workspace;initial catalog=Retail;integrated security=ClaimsToken;semanticmodelid=22222222-2222-4222-8222-222222222222",
+      "pbiServiceModelId": null,
+      "pbiModelVirtualServerName": "sobe_wowvirtualserver",
+      "pbiModelDatabaseName": "22222222-2222-4222-8222-222222222222",
+      "name": "EntityDataSource",
+      "connectionType": "pbiServiceXmlaStyleLive"
+    }
+  }
+}

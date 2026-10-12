@@ -1,0 +1,25 @@
+table Customer
+
+	column CustomerKey
+		dataType: int64
+		sourceColumn: CustomerID
+
+	column Name
+		dataType: string
+		sourceColumn: FullName
+
+	column Country
+		dataType: string
+
+	column 'Customer Label' = Customer[Name] & " (" & Customer[Country] & ")"
+		dataType: string
+
+	partition Customer = m
+		mode: import
+		source =
+				let
+				    Source = Sql.Database(ServerName, DatabaseName),
+				    dbo_Customers = Source{[Schema="dbo",Item="Customers"]}[Data],
+				    Renamed = Table.RenameColumns(dbo_Customers, {{"FullName","FullName"}})
+				in
+				    Renamed

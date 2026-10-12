@@ -1,0 +1,216 @@
+{{/* SPDX-License-Identifier: Apache-2.0 */}}
+{{/* Copyright (c) 2026 Justin Dodrill */}}
+{{- if .Values.workers.enabled }}
+{{- $full := include "olcf.fullname" . }}
+{{- $hookImage := default (include "olcf.image" .) .Values.workers.enrollment.hookImage }}
+# Post-install / post-upgrade hook: mints one single-use enrolment token per worker pod (<release>-worker-N) and stores it in the Secret
+# <release>-enroll under the key "<pod>.token", which the workers mount at /enroll.  Workers that are already enrolled keep their identity
+# on their own volume; a key that already exists is not minted again.  To re-enrol a worker, delete its key from the Secret and run `helm upgrade`.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $full }}-enroll
+  labels:
+    {{- include "olcf.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-weight: "-5"
+    helm.sh/hook-delete-policy: before-hook-creation
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ $full }}-enroll
+  labels:
+    {{- include "olcf.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-weight: "-5"
+    helm.sh/hook-delete-policy: before-hook-creation
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["create"]                    # "create" cannot be limited by name
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: ["{{ $full }}-enroll"]
+    verbs: ["get", "patch", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ $full }}-enroll
+  labels:
+    {{- include "olcf.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-weight: "-5"
+    helm.sh/hook-delete-policy: before-hook-creation
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ $full }}-enroll
+subjects:
+  - kind: ServiceAccount
+    name: {{ $full }}-enroll
+    namespace: {{ .Release.Namespace }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $full }}-enroll-script
+  labels:
+    {{- include "olcf.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-weight: "-5"
+    helm.sh/hook-delete-policy: before-hook-creation
+data:
+  enroll.py: |
+    # SPDX-License-Identifier: Apache-2.0
+    # Copyright (c) 2026 Justin Dodrill
+    """Mint worker enrolment tokens and store them in a Kubernetes Secret (no token is ever printed)."""
+    import base64
+    import json
+    import os
+    import subprocess
+    import sys
+    import time
+
+    from kubernetes import client, config
+    from kubernetes.client.rest import ApiException
+
+    NS = os.environ["POD_NAMESPACE"]
+    SECRET = os.environ["ENROLL_OBJECT_NAME"]
+    PODS = [p for p in os.environ["WORKER_PODS"].split(",") if p]
+    TTL = os.environ.get("ENROLL_TTL", "86400")
+    POOL = os.environ.get("WORKER_POOL", "")
+    LABELS = [x for x in os.environ.get("WORKER_LABELS", "").split(",") if x]
+
+
+    def olcf(*args, stdin=None):
+        proc = subprocess.run(["olcf", *args], input=stdin, capture_output=True, text=True, check=False)  # noqa: S603,S607
+        if proc.returncode != 0:
+            sys.exit(f"olcf {args[0]} failed (exit {proc.returncode}): {proc.stderr.strip()[:500]}")
+        return proc.stdout
+
+
+    def wait_ready():
+        for _ in range(120):
+            if subprocess.run(["olcf", "status"], capture_output=True, check=False).returncode == 0:  # noqa: S603,S607
+                return
+            time.sleep(5)
+        sys.exit("the control plane did not become ready within 10 minutes")
+
+
+    def main():
+        config.load_incluster_config()
+        api = client.CoreV1Api()
+        try:
+            existing = api.read_namespaced_secret(SECRET, NS).data or {}
+            exists = True
+        except ApiException as exc:
+            if exc.status != 404:
+                raise
+            existing, exists = {}, False
+        wanted = [p for p in PODS if f"{p}.token" not in existing]
+        if not wanted:
+            print("all workers already have an enrolment token; nothing to do")
+            return
+        wait_ready()
+        if not os.environ.get("OLCF_TOKEN"):
+            olcf("login", "-u", os.environ["OLCF_ADMIN_USER"], "--password-stdin", stdin=os.environ["OLCF_ADMIN_PASSWORD"] + "\n")
+        data = {}
+        for pod in wanted:
+            cmd = ["--json", "worker", "enroll-token", "--name", pod, "--ttl", TTL]
+            if POOL:
+                cmd += ["--pool", POOL]
+            for label in LABELS:
+                cmd += ["--label", label]
+            doc = json.loads(olcf(*cmd))
+            token = doc.get("token") or doc.get("enrollment_token")
+            if not token:
+                sys.exit(f"no token returned for {pod}")
+            data[f"{pod}.token"] = base64.b64encode(token.encode()).decode()
+        body = client.V1Secret(metadata=client.V1ObjectMeta(name=SECRET, labels={"app.kubernetes.io/managed-by": "olcf-enroll-hook"}), data=data)
+        if exists:
+            api.patch_namespaced_secret(SECRET, NS, {"data": data})
+        else:
+            api.create_namespaced_secret(NS, body)
+        print(f"stored enrolment tokens for: {', '.join(wanted)}")
+
+
+    main()
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ $full }}-enroll
+  labels:
+    {{- include "olcf.labels" . | nindent 4 }}
+    app.kubernetes.io/component: enroll-hook
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-weight: "0"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 3
+  activeDeadlineSeconds: 1200
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels:
+        {{- include "olcf.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: enroll-hook
+    spec:
+      restartPolicy: OnFailure
+      serviceAccountName: {{ $full }}-enroll
+      {{- include "olcf.pullSecrets" . | nindent 6 }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: enroll
+          image: {{ $hookImage | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["/opt/olcf/bin/python", "/scripts/enroll.py"]
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          env:
+            - {name: OLCF_URL, value: "http://{{ $full }}:{{ .Values.controlPlane.service.port }}"}
+            - {name: OLCF_CONFIG_DIR, value: /tmp/cli}
+            - {name: HOME, value: /tmp}
+            - {name: PATH, value: "/opt/olcf/bin:/usr/local/bin:/usr/bin:/bin"}
+            - {name: ENROLL_OBJECT_NAME, value: "{{ $full }}-enroll"}
+            - {name: ENROLL_TTL, value: {{ .Values.workers.enrollment.ttlSeconds | quote }}}
+            - {name: WORKER_POOL, value: {{ .Values.workers.pool | quote }}}
+            - {name: WORKER_LABELS, value: {{ .Values.workers.labels | quote }}}
+            - name: WORKER_PODS
+              value: "{{ range $i := until (int .Values.workers.replicas) }}{{ if $i }},{{ end }}{{ $full }}-worker-{{ $i }}{{ end }}"
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef: {fieldPath: metadata.namespace}
+            {{- if .Values.workers.enrollment.apiTokenSecret }}
+            - name: OLCF_TOKEN
+              valueFrom:
+                secretKeyRef: {name: {{ .Values.workers.enrollment.apiTokenSecret | quote }}, key: token}
+            {{- else }}
+            - {name: OLCF_ADMIN_USER, value: {{ .Values.workers.enrollment.adminUser | quote }}}
+            - name: OLCF_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "olcf.secretName" . }}
+                  key: {{ .Values.secrets.adminPasswordKey }}
+            {{- end }}
+          resources:
+            requests: {cpu: 100m, memory: 256Mi}
+            limits: {memory: 512Mi}
+          volumeMounts:
+            - {name: scripts, mountPath: /scripts, readOnly: true}
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - name: scripts
+          configMap:
+            name: {{ $full }}-enroll-script
+        - name: tmp
+          emptyDir: {}
+{{- end }}

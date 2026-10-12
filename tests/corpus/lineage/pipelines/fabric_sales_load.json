@@ -1,0 +1,41 @@
+{
+  "properties": {
+    "parameters": {
+      "sink_table": {"type": "string", "defaultValue": "sales_fact"},
+      "dynamic_ws": {"type": "string"}
+    },
+    "activities": [
+      {"name": "CopyFromSql", "type": "Copy", "dependsOn": [],
+       "typeProperties": {
+         "source": {"type": "AzureSqlSource", "sqlReaderQuery": "SELECT id, amount FROM dbo.sales",
+                    "datasetSettings": {"type": "AzureSqlTable", "typeProperties": {"schema": "dbo", "table": "sales", "database": "erp"},
+                                        "externalReferences": {"connection": "cccccccc-0000-4000-8000-000000000009"}}},
+         "sink": {"type": "LakehouseTableSink", "tableActionOption": "Overwrite",
+                  "datasetSettings": {"type": "LakehouseTable",
+                    "typeProperties": {"schema": "dbo", "table": "@pipeline().parameters.sink_table"},
+                    "linkedService": {"properties": {"type": "Lakehouse", "typeProperties": {"workspaceId": "bbbbbbbb-0000-4000-8000-000000000002", "artifactId": "aaaaaaaa-0000-4000-8000-000000000001", "rootFolder": "Tables"}}}}}}},
+      {"name": "StageToSilver", "type": "Copy", "dependsOn": [{"activity": "CopyFromSql", "dependencyConditions": ["Succeeded"]}],
+       "typeProperties": {
+         "source": {"type": "LakehouseTableSource",
+                    "datasetSettings": {"type": "LakehouseTable", "typeProperties": {"schema": "dbo", "table": "sales_fact"},
+                      "linkedService": {"properties": {"type": "Lakehouse", "typeProperties": {"workspaceId": "bbbbbbbb-0000-4000-8000-000000000002", "artifactId": "aaaaaaaa-0000-4000-8000-000000000001", "rootFolder": "Tables"}}}}},
+         "sink": {"type": "DataWarehouseSink",
+                  "datasetSettings": {"type": "DataWarehouseTable", "typeProperties": {"schema": "mart", "table": "sales"},
+                    "linkedService": {"properties": {"type": "DataWarehouse", "typeProperties": {"workspaceId": "bbbbbbbb-0000-4000-8000-000000000002", "artifactId": "dddddddd-0000-4000-8000-000000000004", "rootFolder": "Tables"}}}}},
+         "translator": {"type": "TabularTranslator", "mappings": [
+           {"source": {"name": "id"}, "sink": {"name": "sale_id"}},
+           {"source": {"name": "amount"}, "sink": {"name": "amount"}}]}}},
+      {"name": "RunNotebook", "type": "TridentNotebook", "dependsOn": [{"activity": "StageToSilver", "dependencyConditions": ["Succeeded"]}],
+       "typeProperties": {"notebookId": "eeeeeeee-0000-4000-8000-000000000005", "workspaceId": "bbbbbbbb-0000-4000-8000-000000000002"}},
+      {"name": "RunJob", "type": "SparkJobDefinition", "typeProperties": {"sparkJobDefinitionId": "ffffffff-0000-4000-8000-000000000006"}},
+      {"name": "Child", "type": "ExecutePipeline", "typeProperties": {"pipeline": {"referenceName": "99999999-0000-4000-8000-000000000007", "type": "PipelineReference"}}},
+      {"name": "Refresh", "type": "PBISemanticModelRefresh", "typeProperties": {"semanticModelId": "11111111-0000-4000-8000-000000000008"}},
+      {"name": "Loop", "type": "ForEach", "typeProperties": {"items": "@createArray(1,2)", "activities": [
+        {"name": "Merge", "type": "Script", "typeProperties": {"scripts": [{"type": "NonQuery", "text": "INSERT INTO mart.daily SELECT s.sale_id, s.amount FROM mart.sales s"}]}},
+        {"name": "Dbx", "type": "DatabricksNotebook", "typeProperties": {"notebookPath": "/Shared/etl"}}]}},
+      {"name": "Ping", "type": "WebActivity", "typeProperties": {"url": "https://api.example.com/v1/ping", "method": "GET"}},
+      {"name": "Dyn", "type": "TridentNotebook", "typeProperties": {"notebookId": "@pipeline().parameters.dynamic_ws"}},
+      {"name": "Wait1", "type": "Wait", "typeProperties": {"waitTimeInSeconds": 1}}
+    ]
+  }
+}
