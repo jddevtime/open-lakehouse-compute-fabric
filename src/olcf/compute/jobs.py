@@ -166,6 +166,8 @@ class JobService:
         self._pool = ThreadPoolExecutor(max_workers=8, thread_name_prefix="olcf-launch")
         self._remote_pool = ThreadPoolExecutor(max_workers=4, thread_name_prefix="olcf-remote")
         self._event_lock = threading.Lock()
+        #: job id -> (attempt, highest ``seq`` handled): checked before the persisted ``event_seq`` because a concurrent writer of ``provider_handle`` can overwrite that with a stale copy
+        self._event_seq_seen: dict[str, tuple[int, int]] = {}
         #: dataset events reported by runners: per-attempt budget and forwarded / dropped counters (see :meth:`forward_dataset_event`)
         self.dataset_event_budget = lineage_events.EventBudget()
         self.dataset_event_stats = lineage_events.EventStats()
@@ -1111,10 +1113,17 @@ class JobService:
         if isinstance(seq, int) and not isinstance(seq, bool):
             # agents re-send events after a reconnect; ``seq`` (the raw log offset of the @@OLCF@@ line) is the dedupe id (CONTRACTS, NODE addenda N3)
             with self._event_lock:
+                mem = self._event_seq_seen.get(row["id"])
+                if mem is not None and mem[0] == row["attempt"] and seq <= mem[1]:
+                    return
                 h = dict(self.get_row(row["id"]).get("provider_handle") or {})
                 seen = h.get("event_seq") or {}
                 if seen.get("attempt") == row["attempt"] and seq <= int(seen.get("seq", -1)):
                     return
+                self._event_seq_seen[row["id"]] = (row["attempt"], seq)
+                if len(self._event_seq_seen) > 4096:  # bounded: drop the oldest entries (the persisted value still covers them)
+                    for old_id in list(self._event_seq_seen)[:1024]:
+                        self._event_seq_seen.pop(old_id, None)
                 self._handle_update(row["id"], event_seq={"attempt": row["attempt"], "seq": seq})
         self.handle_job_event(row, msg.event, msg.data)
 
