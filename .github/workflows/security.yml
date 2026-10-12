@@ -32,9 +32,12 @@ jobs:
       - uses: astral-sh/setup-uv@v5
         with: {enable-cache: true}
       - name: resolve everything a user can install (all extras) for each supported platform
+        # Versions published in the last three days are left out: OSV-Scanner resolves the lists against deps.dev, which learns a new release some hours (sometimes more than a
+        # day) after PyPI does, and then fails with "no candidates at all for: <package>" instead of scanning. A fresh release is audited once it is three days old.
         run: |
+          cutoff="$(date -u -d '3 days ago' +%Y-%m-%dT%H:%M:%SZ)"
           for plat in x86_64-manylinux_2_28 aarch64-apple-darwin x86_64-pc-windows-msvc; do
-            uv pip compile pyproject.toml --extra all --python-version 3.13 --python-platform "$plat" --only-binary :all: --no-header -o "requirements-$plat.txt"
+            uv pip compile pyproject.toml --extra all --python-version 3.13 --python-platform "$plat" --only-binary :all: --exclude-newer "$cutoff" --no-header -o "requirements-$plat.txt"
           done
       - name: pip-audit
         # the requirement files are fully resolved and hashed-by-version lists: --no-deps audits exactly those pins, --disable-pip avoids building an environment
