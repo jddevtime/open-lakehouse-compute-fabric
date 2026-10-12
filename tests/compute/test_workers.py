@@ -249,8 +249,8 @@ def test_drain_waits_for_running_jobs_then_reports_drained(fleet):
 
     time.sleep(1.0)
     assert st.job(j2["id"])["state"] == "queued"
+    a.job_plan = lambda spec: JobPlan()  # before uncordoning: the queued job is dispatched as soon as the node accepts work again
     st.http.post(f"/v1/workers/{a.worker_id}/uncordon", headers=st.admin)
-    a.job_plan = lambda spec: JobPlan()
     assert st.wait_job(j2["id"])["state"] == "succeeded"
 
 
