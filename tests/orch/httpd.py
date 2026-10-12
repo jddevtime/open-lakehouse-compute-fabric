@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import json
+import socketserver
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -17,6 +18,16 @@ class Hit:
 
     def json(self) -> Any:
         return json.loads(self.body or b"null")
+
+
+class _Srv(ThreadingHTTPServer):
+    """A roomy accept queue (BSD/macOS resets connections beyond the default 5 when several requests arrive at once) and no reverse DNS lookup on bind (slow on a ``.local`` host)."""
+
+    request_queue_size = 128
+
+    def server_bind(self) -> None:
+        socketserver.TCPServer.server_bind(self)
+        self.server_name, self.server_port = "127.0.0.1", self.server_address[1]
 
 
 class Server:
@@ -74,7 +85,7 @@ class Server:
             def log_message(self, *args: Any) -> None:
                 pass
 
-        self.httpd = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        self.httpd = _Srv(("127.0.0.1", 0), Handler)
         self.httpd.daemon_threads = True
         self.port = self.httpd.server_address[1]
         self.thread = threading.Thread(target=self.httpd.serve_forever, name="test-httpd", daemon=True)

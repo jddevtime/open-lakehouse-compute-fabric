@@ -285,7 +285,7 @@ def test_server_errors_are_not_replayed_for_post_unless_safe(ip: Inproc, httpd: 
     assert acts["Busy"][0]["error"]["retryable"] is False and "retrySuppressed" in acts["Busy"][0]["error"]["details"]
     assert acts["KeyedBusy"][0]["state"] == "succeeded" and acts["KeyedBusy"][0]["attempt"] == 2, "an explicitly idempotent request keeps its 503 retry"
     assert acts["GetBusy"][0]["state"] == "succeeded" and acts["GetBusy"][0]["attempt"] == 2, "a safe method keeps its 503 retry"
-    assert acts["Throttled"][0]["state"] == "succeeded" and acts["Throttled"][0]["attempt"] == 2, "429 is a known rejection"
+    assert acts["Throttled"][0]["state"] == "succeeded" and acts["Throttled"][0]["attempt"] == 2, f"429 is a known rejection: {acts['Throttled'][0]}"
     assert acts["Keyed"][0]["state"] == "succeeded" and acts["Keyed"][0]["attempt"] == 2
     assert len(httpd.to("/p500")) == 1 and run["state"] == "failed"
 
