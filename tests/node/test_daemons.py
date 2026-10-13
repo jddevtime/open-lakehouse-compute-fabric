@@ -387,3 +387,29 @@ def test_log_tail_is_redacted(env):
 
 def test_http_json_helper():
     assert dmod.http_json("http://127.0.0.1:1/json/", timeout=0.5) is None
+
+
+def test_daemon_state_can_be_persisted_from_several_threads_at_once(env):
+    """The supervisor and the request threads persist the same daemon; a shared temporary file name made one of them fail with FileNotFoundError."""
+    import threading
+
+    mgr, _out, state = env
+    d = dmod.Daemon(role="master", runtime_id=RT, params={"host": "127.0.0.1"}, dir=state / "daemons" / "race")
+    d.dir.mkdir(parents=True)
+    errors: list[BaseException] = []
+
+    def hammer() -> None:
+        try:
+            for _ in range(300):
+                mgr._persist(d)
+        except BaseException as exc:  # noqa: BLE001 - collected and asserted below
+            errors.append(exc)
+
+    threads = [threading.Thread(target=hammer) for _ in range(8)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert not errors, errors[:1]
+    assert json.loads((d.dir / "daemon.json").read_text())["role"] == "master"
+    assert [p.name for p in d.dir.iterdir()] == ["daemon.json"]

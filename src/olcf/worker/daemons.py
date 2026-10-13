@@ -312,9 +312,14 @@ class DaemonManager:
     def _persist(self, d: Daemon) -> None:
         doc = {"role": d.role, "runtime_id": d.runtime_id, "ui_port": d.ui_port, "params": {k: v for k, v in d.params.items() if k != "conf"}, "conf_keys": sorted(d.params.get("conf") or {}),
                "pid": d.pid, "create_time": d.create_time, "url": d.url, "ui_url": d.ui_url, "state": d.state, "updated_at": now_iso()}
-        tmp = d.dir / "daemon.json.tmp"
-        tmp.write_text(json.dumps(doc), encoding="utf-8")
-        os.replace(tmp, d.dir / "daemon.json")
+        # a temporary name of its own per call: the supervisor thread and the request threads can persist the same daemon at the same moment, and with one shared
+        # "daemon.json.tmp" the first os.replace() takes the file away from the second writer
+        tmp = d.dir / f"daemon.json.{os.getpid()}.{threading.get_ident()}.tmp"
+        try:
+            tmp.write_text(json.dumps(doc), encoding="utf-8")
+            os.replace(tmp, d.dir / "daemon.json")
+        finally:
+            tmp.unlink(missing_ok=True)
 
     # ------------------------------------------------------------------ health
     def _health(self, d: Daemon) -> tuple[bool, str, dict[str, Any]]:
