@@ -32,8 +32,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
         with: {enable-cache: true}
       - name: ruff
         run: uvx ruff check src tests sdk scripts examples deploy/scripts
@@ -53,8 +53,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
         with: {enable-cache: true}
       - run: |
           uv venv --seed --python 3.13
@@ -71,8 +71,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
         with: {enable-cache: true}
       - run: |
           uv venv --seed --python 3.13
@@ -99,12 +99,12 @@ jobs:
           - {os: ubuntu-latest, python: "3.13"}
           - {os: macos-latest, python: "3.13"}
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
         with: {enable-cache: true}
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with: {distribution: temurin, java-version: "21"}
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with: {node-version: "22"}
       # --seed puts pip in the environment (uv venv makes it without); environment publication, layers and scripts/build_fabric_sdk.sh run `python -m pip`
       - run: |
@@ -125,10 +125,10 @@ jobs:
     # Windows is not a platform of the full suite (the Spark runtime and the POSIX process model are covered on Linux/macOS); this job proves that the control plane starts, every
     # module imports, and the cross-process file lock (msvcrt) works - the things a POSIX-only import (fcntl) used to break (review finding F06).
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
         with: {enable-cache: true}
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with: {node-version: "22"}
       - run: |
           uv venv --seed --python 3.13
@@ -156,8 +156,8 @@ jobs:
     env:
       OLCF_TEST_POSTGRES_URL: postgresql+psycopg://olcf:olcf-ci-only@localhost:5432/olcf_test
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
         with: {enable-cache: true}
       - run: |
           uv venv --seed --python 3.13
@@ -171,12 +171,12 @@ jobs:
     env:
       OLCF_TEST_RUNTIME_DIR: ${{ github.workspace }}/.cache/olcf-test-runtime
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
         with: {enable-cache: true}
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with: {distribution: temurin, java-version: "21"}
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: .cache/olcf-test-runtime
           key: olcf-spark-runtime-${{ runner.os }}-${{ hashFiles('tests/node/runtime_fixture.py', 'src/olcf/runtime/manifests/**', 'src/olcf/runtime/locktool.py') }}
@@ -196,16 +196,16 @@ jobs:
     timeout-minutes: 60
     # needs Maven Central; the result is attached to the run as the release record for Delta support
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
         with: {enable-cache: true}
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with: {distribution: temurin, java-version: "21"}
       - run: |
           uv venv --seed --python 3.13
           uv pip install -e ".[all]"
       - run: uv run --no-sync python scripts/verify_spark_delta.py --iceberg | tee delta-report.txt
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with: {name: delta-report, path: delta-report.txt, retention-days: 30}
 
@@ -221,16 +221,16 @@ jobs:
       # the notebook/SQL/Spark UI tests need the cached runtime; without it they would skip and the gate below would fail the job
       OLCF_TEST_RUNTIME_DIR: ${{ github.workspace }}/.cache/olcf-test-runtime
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
         with: {enable-cache: true}
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with: {distribution: temurin, java-version: "21"}
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('pyproject.toml') }}
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: .cache/olcf-test-runtime
           key: olcf-spark-runtime-${{ runner.os }}-${{ hashFiles('tests/node/runtime_fixture.py', 'src/olcf/runtime/manifests/**', 'src/olcf/runtime/locktool.py') }}
@@ -249,10 +249,10 @@ jobs:
       - name: gate - browser tests really ran
         if: always()
         run: uv run --no-sync python scripts/check_junit_run.py e2e-junit.xml --min-tests 60
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with: {name: e2e-junit, path: e2e-junit.xml, if-no-files-found: warn, retention-days: 14}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: failure()
         with: {name: e2e-traces, path: "test-results", if-no-files-found: ignore, retention-days: 7}
 
@@ -266,8 +266,8 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
         with: {name: dist, path: dist}
       - name: install (POSIX)
         if: runner.os != 'Windows'
@@ -306,9 +306,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
         with: {enable-cache: true}
       - run: bash scripts/build_release.sh --out dist
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with: {name: dist, path: dist, retention-days: 14}
