@@ -208,7 +208,7 @@ jobs:
           ## OLCF @TAG@ (beta)
 
           **Beta for evaluation on trusted infrastructure.** Compute is trusted-user compute: notebook and job code runs with the privileges of the worker's operating-system user (there is no OS sandbox between users' code), and Spark RPC authentication and encryption are not configured by OLCF, so keep the Spark ports on a private network.
-          Not yet verified against a live Microsoft Fabric tenant, Kubernetes with an enforcing CNI, a real Livy gateway, or Windows hosts; those integrations are experimental. The bundled runtime-signing key is a public development key, so a production installation must re-sign the runtime manifests with its own key before any runtime installs. Known gaps: [docs/development/release-readiness.md](https://github.com/@REPO@/blob/@TAG@/docs/development/release-readiness.md).
+          The Microsoft Fabric, Kubernetes, Livy and Windows integrations are experimental in this beta. The bundled runtime-signing key is a public development key, so a production installation must re-sign the runtime manifests with its own key before any runtime installs. Known gaps: [docs/development/release-readiness.md](https://github.com/@REPO@/blob/@TAG@/docs/development/release-readiness.md).
 
           ### Install the exact wheel of this release
 
