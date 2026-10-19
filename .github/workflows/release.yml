@@ -78,8 +78,8 @@ jobs:
     outputs:
       version: ${{ steps.v.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
         with: {enable-cache: true}
       - name: the tag must match the package version
         id: v
@@ -102,7 +102,7 @@ jobs:
           curl -fsSL https://get.helm.sh/helm-v3.16.2-linux-amd64.tar.gz | tar -xz -C /tmp linux-amd64/helm
           /tmp/linux-amd64/helm package deploy/helm/olcf --version "${{ steps.v.outputs.version }}" --app-version "${{ steps.v.outputs.version }}" -d dist
           (cd dist && rm -f SHA256SUMS && sha256sum -- * > /tmp/SHA256SUMS && mv /tmp/SHA256SUMS SHA256SUMS && sha256sum -c SHA256SUMS)
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with: {name: release-dist, path: dist, retention-days: 30, if-no-files-found: error}
 
   sign:
@@ -116,7 +116,7 @@ jobs:
       id-token: write          # keyless signing with the workflow's OIDC identity
       attestations: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with: {name: release-dist, path: dist}
       - uses: sigstore/cosign-installer@v3
       - name: sign every artifact (keyless, transparency-log backed)
@@ -127,12 +127,12 @@ jobs:
             cosign sign-blob --yes --bundle "$f.sigstore.json" "$f"
           done
       - name: build provenance attestation
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: |
             dist/*.whl
             dist/*.tar.gz
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with: {name: release-signed, path: dist, retention-days: 30, if-no-files-found: error}
 
   images:
@@ -155,14 +155,14 @@ jobs:
           - {image: olcf, dockerfile: deploy/Dockerfile}
           - {image: olcf-worker, dockerfile: deploy/Dockerfile.worker}
     steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-qemu-action@v3
-      - uses: docker/setup-buildx-action@v3
+      - uses: actions/checkout@v7
+      - uses: docker/setup-qemu-action@v4
+      - uses: docker/setup-buildx-action@v4
       - uses: sigstore/cosign-installer@v3
-      - uses: docker/login-action@v3
+      - uses: docker/login-action@v4
         with: {registry: ghcr.io, username: "${{ github.actor }}", password: "${{ secrets.GITHUB_TOKEN }}"}
       - id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}
           flavor: |
@@ -172,7 +172,7 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=raw,value=latest,enable=${{ !startsWith(github.ref_name, 'v0.') && !contains(github.ref_name, '-') }}
       - id: push
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: ${{ matrix.dockerfile }}
@@ -200,7 +200,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with: {name: release-signed, path: dist}
       - name: release notes
         run: |
@@ -226,7 +226,7 @@ jobs:
           NOTES
           owner=$(printf '%s' "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')
           sed -i -e "s|@TAG@|${GITHUB_REF_NAME}|g" -e "s|@VERSION@|${GITHUB_REF_NAME#v}|g" -e "s|@REPO@|${GITHUB_REPOSITORY}|g" -e "s|@OWNER@|${owner}|g" RELEASE_NOTES.md
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         with:
           body_path: RELEASE_NOTES.md
           generate_release_notes: true
